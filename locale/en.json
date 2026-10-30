@@ -586,5 +586,6 @@
   "alerts_triage_high_desc": "Cumulative rainfall deficit. Mobilize supplementary irrigation systems.",
   "alerts_triage_soil_desc": "Vulnerable sloping plots. Reinforce terraces and drainage ditches.",
   "alerts_triage_stable_desc": "Balanced root-zone water envelope. Standard seasonal monitoring.",
-  "btn_ask_advice_ai": "Ask ADVICE AI about this Alert"
+  "btn_ask_advice_ai": "Ask ADVICE AI about this Alert",
+  "chat_llm_setup_guide": "By default, CropWatch operates with a fast deterministic agronomic inference engine (<5ms) grounded in real NISR SAS plot data and Rwandan agricultural policy. You may optionally connect a free Groq (llama-3.1-8b-instant) or Google Gemini API key below for open-ended generative agricultural dialogue."
 }

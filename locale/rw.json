@@ -586,5 +586,6 @@
   "alerts_triage_high_desc": "Icyuho cy'imvura. Tegura uburyo bwo kunganira imyaka ukoresheje amazi.",
   "alerts_triage_soil_desc": "Imisozi ihanamye igerwa n'amazi. Shimangira amaterasi n'imyobo.",
   "alerts_triage_stable_desc": "Ubuhehere mu mizi burahagije. Gukurikirana ibikorwa bisanzwe.",
-  "btn_ask_advice_ai": "Baza ADVICE AI kuri iyi Nteguza"
+  "btn_ask_advice_ai": "Baza ADVICE AI kuri iyi Nteguza",
+  "chat_llm_setup_guide": "Muri rusange, CropWatch ikoresha moteri yihuta cyane (<5ms) ifite amakuru yizewe y'ubushakashatsi bwa NISR SAS na politiki y'ubuhinzi mu Rwanda. Ushobora no gushyiramo imfunguzo z'ubuntu za Groq (llama-3.1-8b-instant) cyangwa Google Gemini hasi aha kugira ngo ubashe kuganira n'ubwenge bwa mudasobwa mu buryo bwagutse."
 }

@@ -758,11 +758,11 @@ if "pending_page" in st.session_state:
     if st.query_params.get("page") != dest:
         st.query_params["page"] = dest
 
-col_brand, col_nav, col_lang = st.columns([1.5, 6.7, 1.8], vertical_alignment="center")
+col_brand, col_nav, col_status, col_lang = st.columns([1.8, 6.2, 1.2, 0.8], vertical_alignment="center")
 with col_brand:
     st.markdown(
         f"""
-        <div class="landing-brand header-brand">
+        <div class="header-brand">
           <div class="header-crest">
             <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="20" cy="20" r="19" fill="#0d4f2b" stroke="#c4a35a" stroke-width="2"/>
@@ -772,7 +772,7 @@ with col_brand:
           </div>
           <div class="header-title-box">
             <span class="header-main-title">CropWatch Rwanda</span>
-            <span class="header-sub-tag">National Decision Desk · NST2</span>
+            <span class="header-sub-tag">National Decision Desk &middot; NST2</span>
           </div>
         </div>
         """,
@@ -787,7 +787,7 @@ with col_nav:
         label_visibility="collapsed",
         key="page_nav",
     )
-with col_lang:
+with col_status:
     st.markdown(
         """
         <div class="topbar-status-badge">
@@ -797,6 +797,7 @@ with col_lang:
         """,
         unsafe_allow_html=True,
     )
+with col_lang:
     language = st.pills(
         "Language",
         options=["en", "rw"],
@@ -1581,6 +1582,26 @@ elif page == "advise":
         if st.button("🔄 " + ("Siba" if st.session_state.lang == "rw" else "Clear"), key="btn_clear_chat", help="Reset chat for this district", width="stretch"):
             st.session_state[history_key] = []
             st.rerun()
+
+    with st.expander("⚙️ " + ("Igenamiterere rya Cloud LLM (Bihitamo: Groq / Gemini)" if st.session_state.lang == "rw" else "Cloud LLM Connectivity (Optional: Groq / Gemini)"), expanded=False):
+        st.markdown(f'<p style="font-size:13px; color:#3b5240; margin-bottom:12px;">{words["chat_llm_setup_guide"]}</p>', unsafe_allow_html=True)
+        col_k1, col_k2 = st.columns(2)
+        with col_k1:
+            groq_key_input = st.text_input("Groq API Key (llama-3.1-8b-instant)", value=st.session_state.get("GROQ_API_KEY", ""), type="password", key="groq_key_field")
+            if groq_key_input != st.session_state.get("GROQ_API_KEY", ""):
+                st.session_state["GROQ_API_KEY"] = groq_key_input.strip()
+                import os
+                if groq_key_input.strip():
+                    os.environ["GROQ_API_KEY"] = groq_key_input.strip()
+                st.rerun()
+        with col_k2:
+            gemini_key_input = st.text_input("Google Gemini API Key (gemini-2.0-flash)", value=st.session_state.get("GEMINI_API_KEY", ""), type="password", key="gemini_key_field")
+            if gemini_key_input != st.session_state.get("GEMINI_API_KEY", ""):
+                st.session_state["GEMINI_API_KEY"] = gemini_key_input.strip()
+                import os
+                if gemini_key_input.strip():
+                    os.environ["GEMINI_API_KEY"] = gemini_key_input.strip()
+                st.rerun()
 
     profile = pack(alerts, forecast, watch, soil, vegetation, chosen_chat)
 
