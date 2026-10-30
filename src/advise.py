@@ -897,27 +897,94 @@ def audio_speech_html(text_content, lang="en"):
     lang_code = "rw-RW" if lang == "rw" else "en-US"
     label = "🔊 Listen Aloud (Voice)" if lang == "en" else "🔊 Umva Inama Mu Majwi"
 
-    return f"""
-    <div style="margin: 8px 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #f3f8f4; border: 1px solid #cce5d4; border-radius: 999px; padding: 3px 10px;">
-      <button onclick="
-        try {{
-          window.speechSynthesis.cancel();
-          var utter = new SpeechSynthesisUtterance('{clean_text}');
-          utter.lang = '{lang_code}';
-          utter.rate = 0.95;
-          window.speechSynthesis.speak(utter);
-        }} catch(e) {{
-          console.error(e);
-        }}
-      " style="background: linear-gradient(135deg, #0d4f2b 0%, #157340 100%); color:#ffffff; border:none; border-radius:999px; padding:5px 12px; font-size:11.5px; font-weight:750; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); transition: all 0.15s ease;">
-        {label}
-      </button>
-      <span style="font-size: 11px; color: #2e5b3b; font-weight: 600; padding: 0 4px;">0.95× Speed</span>
-      <button onclick="window.speechSynthesis.cancel();" style="background:#ffffff; color:#b42318; border:1px solid #d5ddd0; border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; justify-content:center;" title="Stop Voice">
-        ⏹️
-      </button>
-    </div>
-    """
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<style>
+  html, body {{
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }}
+  .speech-bar {{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f4faf6;
+    border: 1px solid #b7dcbe;
+    border-radius: 999px;
+    padding: 3px 10px 3px 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }}
+  .speech-play-btn {{
+    background: linear-gradient(135deg, #0d4f2b 0%, #157340 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(13,79,43,0.25);
+    transition: transform 0.1s ease, filter 0.15s ease;
+  }}
+  .speech-play-btn:hover {{
+    filter: brightness(1.1);
+    transform: scale(1.02);
+  }}
+  .speech-rate {{
+    font-size: 11px;
+    color: #2e5b3b;
+    font-weight: 650;
+    padding: 0 2px;
+  }}
+  .speech-stop-btn {{
+    background: #ffffff;
+    color: #b42318;
+    border: 1px solid #d5ddd0;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }}
+  .speech-stop-btn:hover {{
+    background: #fee2e2;
+    border-color: #fca5a5;
+  }}
+</style>
+</head>
+<body>
+  <div class="speech-bar">
+    <button class="speech-play-btn" onclick="
+      try {{
+        window.speechSynthesis.cancel();
+        var utter = new SpeechSynthesisUtterance('{clean_text}');
+        utter.lang = '{lang_code}';
+        utter.rate = 0.95;
+        window.speechSynthesis.speak(utter);
+      }} catch(e) {{
+        console.error(e);
+      }}
+    ">
+      {label}
+    </button>
+    <span class="speech-rate">0.95× Speed</span>
+    <button class="speech-stop-btn" onclick="try {{ window.speechSynthesis.cancel(); }} catch(e){{}}" title="Stop Voice">
+      ⏹️
+    </button>
+  </div>
+</body>
+</html>"""
 
 
 # ==============================================================================

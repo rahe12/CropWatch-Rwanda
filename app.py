@@ -1622,28 +1622,49 @@ elif page == "advise":
     if default_d not in district_names:
         default_d = district_names[0]
 
-    # Top Control Bar: District Selection + Status Pill + Reset History
-    col_d, col_status_ai, col_clr = st.columns([1.5, 2.5, 0.6], vertical_alignment="center")
+    chosen_district_current = st.session_state.get("chat_district", default_d)
+    if chosen_district_current not in district_names:
+        chosen_district_current = district_names[0]
+    history_key = f"chat_{chosen_district_current}_{st.session_state.lang}"
+    if history_key not in st.session_state:
+        st.session_state[history_key] = []
+
+    # Top Control Bar: District Selection + Status Pill + Export Transcript + Reset History
+    col_d, col_status_ai, col_exp, col_clr = st.columns([1.4, 2.0, 1.0, 0.6], vertical_alignment="center")
     with col_d:
         chosen_chat = st.selectbox(
             words["pick_district"],
             district_names,
-            index=district_names.index(default_d),
+            index=district_names.index(chosen_district_current),
             key="chat_district",
         )
     with col_status_ai:
         engine = llm_status()
         status_msg = words.get("chat_engine_llm", "⚡ Cloud LLM Connected") if engine else words.get("chat_engine_fast", "⚡ Fast Local Agronomic Engine Active")
         st.markdown(
-            f'<div style="background:#eaf4ed; border:1px solid #b7dcbe; border-radius:6px; padding:8px 14px; font-size:12.5px; color:#0d4f2b; font-weight:600; margin-top:16px; display:flex; align-items:center; gap:8px;">'
-            f'<span>🟢</span> <span>{status_msg} · <strong style="color:#09381e;">Latency: &lt;5ms</strong> · <span style="color:#2e5b3b; font-weight:normal;">{words.get("chat_voice_tip", "🔊 Voice enabled")}</span></span>'
+            f'<div style="background:#eaf4ed; border:1px solid #b7dcbe; border-radius:6px; padding:7px 12px; font-size:12px; color:#0d4f2b; font-weight:600; margin-top:16px; display:flex; align-items:center; gap:6px;">'
+            f'<span>🟢</span> <span>{status_msg} · <strong style="color:#09381e;">&lt;5ms</strong> · <span style="color:#2e5b3b; font-weight:normal;">{words.get("chat_voice_tip", "🔊 Voice enabled")}</span></span>'
             f'</div>',
             unsafe_allow_html=True,
         )
+    with col_exp:
+        # Integrated Export Briefing button right in top control bar
+        if st.session_state[history_key]:
+            transcript_text = f"# CropWatch Rwanda — Agronomic Copilot Briefing ({chosen_chat})\n\n"
+            for s_role, s_msg in st.session_state[history_key]:
+                pfx = "Farmer / Extension Agronomist" if s_role == "user" else "CropWatch Agronomic Copilot"
+                transcript_text += f"### {pfx}:\n{s_msg}\n\n"
+            st.download_button(
+                "📥 " + ("Koporora (MD)" if st.session_state.lang == "rw" else "Export Briefing"),
+                transcript_text.encode("utf-8"),
+                f"cropwatch_copilot_{chosen_chat.lower()}.md",
+                "text/markdown",
+                key=f"dl_transcript_{chosen_chat}",
+                width="stretch",
+            )
+        else:
+            st.button("📥 " + ("Koporora" if st.session_state.lang == "rw" else "Export Briefing"), disabled=True, width="stretch", help="Available when chat history exists", key="btn_exp_disabled")
     with col_clr:
-        history_key = f"chat_{chosen_chat}_{st.session_state.lang}"
-        if history_key not in st.session_state:
-            st.session_state[history_key] = []
         if st.button("🔄 " + ("Siba" if st.session_state.lang == "rw" else "Clear"), key="btn_clear_chat", help="Reset chat for this district", width="stretch"):
             st.session_state[history_key] = []
             st.rerun()
@@ -1707,13 +1728,15 @@ elif page == "advise":
 
     with col_main:
         st.markdown(
-            f'<p class="kicker-green" style="margin-bottom:8px; font-weight:700;">'
-            f'{"✨ Hitamo Serivisi ya AI Ubare Ako Kanya:" if st.session_state.lang == "rw" else "✨ Instant AI Agronomic Actions (Trained Local ML Models):"}'
-            f'</p>',
+            f'<div style="margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">'
+            f'<span style="font-size:12px; font-weight:750; color:#0d4f2b; text-transform:uppercase; letter-spacing:0.04em;">'
+            f'⚡ {"Hitamo Serivisi ya AI Ubare Ako Kanya (Microdata ya NISR SAS):" if st.session_state.lang == "rw" else "⚡ Instant ML Agronomic Actions (NISR SAS Microdata Models):"}'
+            f'</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
-        # 2-Row Interactive AI Capability Grid
+        # 2-Row Interactive AI Capability Pill Grid
         c1, c2, c3, c4 = st.columns(4)
         quick = None
         if c1.button(words.get("chat_btn_yield", "🧪 Yield Uplift ML"), key="btn_ai_yield", width="stretch"):
@@ -1759,7 +1782,7 @@ elif page == "advise":
             st.session_state[history_key].append(("bot", ans_text))
             st.rerun()
 
-        # If no chat history yet, show friendly guidance hero
+        # If no chat history yet, show executive guidance hero
         if not st.session_state[history_key]:
             welcome_head = f"Muraho! Ndi Umujyanama wa AI muri {chosen_chat}." if st.session_state.lang == "rw" else f"Welcome! I am your CropWatch ML Agronomic Copilot for {chosen_chat}."
             welcome_body = (
@@ -1767,15 +1790,24 @@ elif page == "advise":
                 f"Kanda hejuru kuri bumwe muri ubu bumenyi bwa Machine Learning (Umusaruro, Ubwishingizi, Ibiciro bya WFP, Kuhira) cyangwa wandike ikibazo cyawe mu gasanduku ko hasi."
                 if st.session_state.lang == "rw" else
                 f"**{chosen_chat} District** currently exhibits a cumulative rainfall anomaly of **{profile['rain_pct']:+.0f}%** and a weekly crop water deficit of **{profile['deficit_mm']:.1f} mm**. "
-                f"Click any of the trained Machine Learning buttons above to run instant inferences on 28,042 real NISR SAS survey plots, or type your question below."
+                f"Click any of the trained Machine Learning pills above to run instant inferences on 28,042 real NISR SAS survey plots, or type any agronomic question below."
             )
             st.markdown(
                 f"""
                 <div class="ai-welcome-box">
-                  <div style="font-size:18px; font-weight:750; color:#0d4f2b; margin-bottom:8px;">🤖 {welcome_head}</div>
-                  <div style="font-size:14px; line-height:1.6; color:#2c3a2f;">{welcome_body}</div>
-                  <div style="margin-top:12px; font-size:12px; color:#5b6e60; font-weight:600;">
-                    💡 {"Inama: Kanda 'Ubwiyongere bw'Umusaruro (ML)' kugira ngo ubone uko kuhira no gukoresha ifumbire byongera umusaruro w'ibigori." if st.session_state.lang == "rw" else "Tip: Click 'ML Yield Uplift' to see how supplementary irrigation and DAP/Urea fertilizer uplift maize yield on real surveyed plots."}
+                  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                    <span style="font-size:24px;">🌾</span>
+                    <div>
+                      <div style="font-size:16px; font-weight:750; color:#0d4f2b;">{welcome_head}</div>
+                      <div style="font-size:11.5px; color:#55705d;">NISR Seasonal Agriculture Survey · Meteo Rwanda · WFP VAM</div>
+                    </div>
+                  </div>
+                  <div style="font-size:13.5px; line-height:1.6; color:#2c3a2f; margin-bottom:12px;">{welcome_body}</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid #ddecde;">
+                    <span style="background:#eaf4ed; color:#0d4f2b; font-size:11px; font-weight:650; padding:3px 10px; border-radius:999px; border:1px solid #b7dcbe;">⚡ Latency: &lt;5ms</span>
+                    <span style="background:#eaf4ed; color:#0d4f2b; font-size:11px; font-weight:650; padding:3px 10px; border-radius:999px; border:1px solid #b7dcbe;">📊 28,042 Surveyed Plots</span>
+                    <span style="background:#eaf4ed; color:#0d4f2b; font-size:11px; font-weight:650; padding:3px 10px; border-radius:999px; border:1px solid #b7dcbe;">🛡️ NAIS Parametric Triggers</span>
+                    <span style="background:#eaf4ed; color:#0d4f2b; font-size:11px; font-weight:650; padding:3px 10px; border-radius:999px; border:1px solid #b7dcbe;">🔊 Hands-Free Voice Synthesis</span>
                   </div>
                 </div>
                 """,
@@ -1786,17 +1818,30 @@ elif page == "advise":
         num_msgs = len(st.session_state[history_key])
         for idx, (speaker, text) in enumerate(st.session_state[history_key]):
             if speaker == "user":
-                with st.chat_message("user"):
-                    st.markdown(f"**👤 {words.get('chat_role_user', 'Farmer / Agronomist')} ({chosen_chat})**")
-                    st.markdown(text)
-            else:
-                with st.chat_message("assistant"):
+                with st.chat_message("user", avatar="👤"):
                     st.markdown(
                         f"""
+                        <span class="user-marker" style="display:none;"></span>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #d8eadc;">
+                          <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="background:#eaf4ed; color:#166534; font-size:11px; font-weight:750; padding:2px 8px; border-radius:999px; border:1px solid #b7dcbe;">👤 {"Umuhinzi / Agronome" if st.session_state.lang == "rw" else "Farmer / Agronomist"}</span>
+                            <span style="font-size:12px; font-weight:650; color:#166534;">{chosen_chat} District</span>
+                          </div>
+                          <span style="font-size:11px; color:#55705d;">{"Ikibazo cyo mu murima" if st.session_state.lang == "rw" else "Field Query"}</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(text)
+            else:
+                with st.chat_message("assistant", avatar="🌾"):
+                    st.markdown(
+                        f"""
+                        <span class="assistant-marker" style="display:none;"></span>
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid #e2ebd8; padding-bottom:6px;">
                           <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="background:#0d4f2b; color:#fff; font-size:11px; font-weight:750; padding:2px 8px; border-radius:999px;">🤖 CropWatch ML</span>
-                            <span style="font-size:12px; font-weight:700; color:#0d4f2b;">{chosen_chat} Copilot</span>
+                            <span style="background:#0d4f2b; color:#fff; font-size:11px; font-weight:750; padding:2px 10px; border-radius:999px;">🌾 CropWatch Copilot</span>
+                            <span style="font-size:12px; font-weight:700; color:#0d4f2b;">{chosen_chat} Intelligence Desk</span>
                           </div>
                           <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10.5px; font-weight:650; padding:2px 8px; border-radius:999px;">NST2 Verified</span>
                         </div>
@@ -1804,41 +1849,34 @@ elif page == "advise":
                         unsafe_allow_html=True,
                     )
                     st.markdown(text)
-                    st.components.v1.html(
-                        audio_speech_html(text, st.session_state.lang),
-                        height=52,
-                    )
-                    # Render interactive follow-up action chips on the latest response
+                    
+                    # Audio Speech Synthesis & Follow-up Action Chips ONLY on latest response
                     if idx == num_msgs - 1:
+                        st.components.v1.html(
+                            audio_speech_html(text, st.session_state.lang),
+                            height=46,
+                        )
                         last_intent = classify(text)
                         followups = get_followups(last_intent, st.session_state.lang)
-                        st.markdown(
-                            f'<div style="font-size:11.5px; font-weight:700; color:#325b39; margin:10px 0 4px;">'
-                            f'{"💡 Hitamo ikibazo gikurikira ugikandeho ako kanya:" if st.session_state.lang == "rw" else "💡 Recommended Follow-Up Actions (Instant One-Click):"}'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
-                        chip_cols = st.columns(len(followups))
-                        for c_idx, chip_text in enumerate(followups):
-                            if chip_cols[c_idx].button(chip_text, key=f"chip_btn_{idx}_{c_idx}", width="stretch"):
-                                st.session_state["pending_chat_prompt"] = chip_text
-                                st.rerun()
+                        if followups:
+                            st.markdown(
+                                f'<div style="font-size:11.5px; font-weight:700; color:#0d4f2b; margin:12px 0 6px; display:flex; align-items:center; gap:6px;">'
+                                f'<span>💡</span> <span>{"Inyigo zikurikira (Kanda ugereyo ako kanya):" if st.session_state.lang == "rw" else "Recommended Follow-Up Actions (Instant One-Click):"}</span>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                            chip_cols = st.columns(len(followups))
+                            for c_idx, chip_text in enumerate(followups):
+                                if chip_cols[c_idx].button(chip_text, key=f"chip_btn_{idx}_{c_idx}", width="stretch"):
+                                    st.session_state["pending_chat_prompt"] = chip_text
+                                    st.rerun()
 
-        # Transcript export for field reporting
-        if st.session_state[history_key]:
-            transcript_text = f"# CropWatch Rwanda — Agronomic Copilot Briefing ({chosen_chat})\n\n"
-            for s_role, s_msg in st.session_state[history_key]:
-                pfx = "Farmer / Extension Agronomist" if s_role == "user" else "CropWatch Agronomic Copilot"
-                transcript_text += f"### {pfx}:\n{s_msg}\n\n"
-            st.download_button(
-                "📥 " + ("Koporora Raporo y'Ibiganiro (MD)" if st.session_state.lang == "rw" else "Export Field Briefing Transcript (MD)"),
-                transcript_text.encode("utf-8"),
-                f"cropwatch_copilot_{chosen_chat.lower()}.md",
-                "text/markdown",
-                key=f"dl_transcript_{chosen_chat}",
-            )
-
-        chat_input_val = st.chat_input(words["chat_empty"])
+        chat_placeholder = (
+            f"Baza Copilot ikibazo kuri {chosen_chat}... (Urugero: 'Nkeneye kuhira iki cyumweru?', 'Ibiciro by'ibigori')"
+            if st.session_state.lang == "rw" else
+            f"Ask Copilot about {chosen_chat}... (e.g. 'Should I irrigate this week?', 'Maize price forecast')"
+        )
+        chat_input_val = st.chat_input(chat_placeholder)
         user_prompt = st.session_state.pop("pending_chat_prompt", None) or chat_input_val
 
         if user_prompt:
