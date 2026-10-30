@@ -286,50 +286,55 @@ def guide_card(title, body):
     """
 
 
-def site_footer(words):
-    return f"""
-    <footer class="landing-footer">
-      <div class="landing-footer-grid">
-        <div>
-          <div class="landing-brand">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="20" cy="20" r="20" fill="#ffffff"/>
-              <path d="M12 24c4-10 8-14 11-15-2 7-2 12 1 15 4-7 7-9 9-9-4 9-8 14-14 15-5-1-7-3-7-6z" fill="#0d4f2b"/>
-            </svg>
-            <span>CropWatch Rwanda<small>{words["brand_tag"]}</small></span>
+def jump(page_name, role=None):
+    st.session_state.pending_page = page_name
+    if role:
+        st.session_state.role = role
+
+
+def render_footer(words):
+    """Footer with working Streamlit page buttons (HTML href alone cannot switch Streamlit pages)."""
+    st.markdown(
+        f"""
+        <footer class="landing-footer">
+          <div class="landing-footer-grid footer-grid-simple">
+            <div>
+              <div class="landing-brand">
+                <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="20" cy="20" r="20" fill="#ffffff"/>
+                  <path d="M12 24c4-10 8-14 11-15-2 7-2 12 1 15 4-7 7-9 9-9-4 9-8 14-14 15-5-1-7-3-7-6z" fill="#0d4f2b"/>
+                </svg>
+                <span>CropWatch Rwanda<small>{words["brand_tag"]}</small></span>
+              </div>
+              <p>{words["footer_blurb"]}</p>
+              <p class="footer-tagline-text">{words["footer_tagline"]}</p>
+            </div>
+            <div>
+              <h2>{words["footer_legal"]}</h2>
+              <p>{words["footer_disclaimer"]}</p>
+              <p>{words["footer_ack"]}</p>
+            </div>
           </div>
-          <p>{words["footer_blurb"]}</p>
-          <p class="footer-tagline-text">{words["footer_tagline"]}</p>
-        </div>
-        <div>
-          <h2>{words["footer_platform"]}</h2>
-          <ul>
-            <li><a href="?page=home">{words["nav_home"]}</a></li>
-            <li><a href="?page=alerts">{words["nav_alerts"]}</a></li>
-            <li><a href="?page=dashboard">{words["nav_dashboard"]}</a></li>
-            <li><a href="?page=soil">{words["nav_soil"]}</a></li>
-            <li><a href="?page=advise">{words["nav_advise"]}</a></li>
-          </ul>
-        </div>
-        <div>
-          <h2>{words["footer_resources"]}</h2>
-          <ul>
-            <li><a href="?page=about">{words["nav_about"]}</a></li>
-            <li><a href="?page=method">{words["nav_method"]}</a></li>
-            <li><a href="?page=data">{words["nav_data"]}</a></li>
-            <li><a href="?page=pilot">{words["nav_pilot"]}</a></li>
-            <li><a href="?page=simulator">{words["nav_simulator"]}</a></li>
-          </ul>
-        </div>
-        <div>
-          <h2>{words["footer_legal"]}</h2>
-          <p>{words["footer_disclaimer"]}</p>
-          <p>{words["footer_ack"]}</p>
-        </div>
-      </div>
-      <div class="landing-copyright">© 2026 CropWatch Rwanda · {words["footer_copy"]}</div>
-    </footer>
-    """
+        </footer>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="footer-nav"><p class="footer-nav-label">{words["footer_platform"]}</p></div>',
+        unsafe_allow_html=True,
+    )
+    f1, f2, f3, f4, f5, f6, f7 = st.columns(7)
+    f1.button(words["nav_home"], width="stretch", key="ft_home", on_click=jump, args=("home",))
+    f2.button(words["nav_alerts"], width="stretch", key="ft_alerts", on_click=jump, args=("alerts",))
+    f3.button(words["nav_dashboard"], width="stretch", key="ft_dashboard", on_click=jump, args=("dashboard",))
+    f4.button(words["nav_simulator"], width="stretch", key="ft_simulator", on_click=jump, args=("simulator",))
+    f5.button(words["nav_advise"], width="stretch", key="ft_advise", on_click=jump, args=("advise",))
+    f6.button(words["nav_data"], width="stretch", key="ft_data", on_click=jump, args=("data",))
+    f7.button(words["nav_about"], width="stretch", key="ft_about", on_click=jump, args=("about",))
+    st.markdown(
+        f'<div class="landing-copyright">© 2026 CropWatch Rwanda · {words["footer_copy"]}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def why_box(row, words):
@@ -700,15 +705,9 @@ matches["safe_to_join"] = matches["safe_to_join"].astype(str).str.lower().eq("tr
 blank_rw = unmatched["survey_crop_rw"].isna() | unmatched["survey_crop_rw"].astype(str).str.strip().eq("")
 unmatched.loc[blank_rw, "survey_crop_rw"] = unmatched.loc[blank_rw, "survey_crop"]
 
-def jump(page_name, role=None):
-    st.session_state.pending_page = page_name
-    if role:
-        st.session_state.role = role
-
-
 PILOTS = ("Bugesera", "Nyagatare", "Musanze", "Nyaruguru")
 NAV_PAGES = ("home", "alerts", "dashboard", "simulator", "advise", "data", "about")
-ALL_PAGES = NAV_PAGES
+ALL_PAGES = NAV_PAGES + ("soil", "pilot", "watch", "method")
 NAV_LABEL = {
     "home": "nav_home",
     "alerts": "nav_alerts",
@@ -854,10 +853,37 @@ if page == "home":
               <p class="landing-eyebrow">{words["eyebrow"]}</p>
               <h1>{words["hero_title"]}</h1>
               <p class="lead">{words["hero_lead"]}</p>
-              <p class="landing-actions">
-                <a class="landing-button hero-primary" href="?page=alerts">{words["home_go_alerts"]}</a>
-                <a class="landing-button hero-secondary" href="?page=dashboard">{words["home_go_dash"]}</a>
-              </p>
+
+              <div class="what-is-hero-card">
+                <div class="what-is-hero-badge">
+                  <span>🌾</span> <strong>{words["what_is_title"]}</strong>
+                </div>
+                <p class="what-is-hero-desc">{words["what_is_desc"]}</p>
+                <div class="what-is-hero-pillars">
+                  <div class="what-is-hero-pillar">
+                    <span class="pillar-icon">🛰️</span>
+                    <div>
+                      <strong>{words["what_is_p1_title"]}</strong>
+                      <p>{words["what_is_p1_desc"]}</p>
+                    </div>
+                  </div>
+                  <div class="what-is-hero-pillar">
+                    <span class="pillar-icon">🌱</span>
+                    <div>
+                      <strong>{words["what_is_p2_title"]}</strong>
+                      <p>{words["what_is_p2_desc"]}</p>
+                    </div>
+                  </div>
+                  <div class="what-is-hero-pillar">
+                    <span class="pillar-icon">🤖</span>
+                    <div>
+                      <strong>{words["what_is_p3_title"]}</strong>
+                      <p>{words["what_is_p3_desc"]}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
             <aside class="landing-prices">
               <header>
@@ -877,6 +903,15 @@ if page == "home":
             </aside>
           </div>
         </section>
+        """,
+        unsafe_allow_html=True,
+    )
+    h1, h2, h3 = st.columns(3)
+    h1.button(words["home_go_alerts"], width="stretch", type="primary", key="home_go_alerts", on_click=jump, args=("alerts",))
+    h2.button(words["home_go_dash"], width="stretch", key="home_go_dash", on_click=jump, args=("dashboard",))
+    h3.button(words["home_go_advise"], width="stretch", key="home_go_advise", on_click=jump, args=("advise",))
+    st.markdown(
+        f"""
         <section class="landing-section">
           <div class="landing-shell">
             <div class="landing-stats">
@@ -910,17 +945,16 @@ if page == "home":
             <p class="kicker-gold">{words["home_start_kicker"]}</p>
             <h2>{words["home_start_title"]}</h2>
             <p class="section-p" style="color:#d6e3dc">{words["home_start_body"]}</p>
-            <p class="landing-actions">
-              <a class="landing-button hero-primary" href="?page=alerts">{words["home_go_alerts"]}</a>
-              <a class="landing-button hero-secondary" href="?page=dashboard">{words["home_go_dash"]}</a>
-              <a class="landing-button hero-secondary" href="?page=advise">{words["home_go_advise"]}</a>
-            </p>
           </div>
         </section>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    c1.button(words["home_go_alerts"], width="stretch", type="primary", key="cta_go_alerts", on_click=jump, args=("alerts",))
+    c2.button(words["home_go_dash"], width="stretch", key="cta_go_dash", on_click=jump, args=("dashboard",))
+    c3.button(words["home_go_advise"], width="stretch", key="cta_go_advise", on_click=jump, args=("advise",))
+    render_footer(words)
 
 elif page == "alerts":
     page_head(
@@ -991,38 +1025,60 @@ elif page == "alerts":
         """,
         unsafe_allow_html=True,
     )
-    layer_col, map_col, legend_col = st.columns([1.05, 2.4, 0.9], vertical_alignment="top")
-    with layer_col:
-        st.markdown(f'<div class="viewer-panel"><h3>{words["layer_title"]}</h3></div>', unsafe_allow_html=True)
+    col_ctrl, col_map = st.columns([1.1, 2.9], vertical_alignment="top", gap="large")
+    with col_ctrl:
+        st.markdown(
+            f"""
+            <div class="map-controls-deck">
+              <div class="deck-header">
+                <span class="deck-icon">🗺️</span>
+                <div>
+                  <strong>{words["layer_title"]}</strong>
+                  <small>{"Gukurikirana ubutaka na satelite" if st.session_state.lang == "rw" else "Spatial Layers & Risk Telemetry"}</small>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         layer = st.radio(
             words["layer_title"],
             ["alert", "climate", "rain", "irrigation", "soil", "vegetation"],
             format_func=lambda key: {
-                "alert": words["layer_alert"],
-                "climate": words["layer_climate"],
-                "rain": words["layer_rain"],
-                "irrigation": words["layer_irrig"],
-                "soil": words["layer_soil"],
-                "vegetation": words["layer_veg"],
+                "alert": "🚨 " + words["layer_alert"],
+                "climate": "🌍 " + words["layer_climate"],
+                "rain": "🌧️ " + words["layer_rain"],
+                "irrigation": "💧 " + words["layer_irrig"],
+                "soil": "⛰️ " + words["layer_soil"],
+                "vegetation": "🌿 " + words["layer_veg"],
             }[key],
             index=0 if role != "agronomist" else 1,
+            label_visibility="collapsed",
             key="map_layer",
+        )
+        st.markdown(
+            f'<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:#0d4f2b; letter-spacing:0.04em; margin-top:14px; margin-bottom:4px;">'
+            f'🎯 {words["filter"]}:'
+            f'</div>',
+            unsafe_allow_html=True,
         )
         shown = st.pills(
             words["filter"],
-            ["irrigation", "soil", "stable", "all"],
+            ["all", "irrigation", "soil", "stable"],
             format_func=lambda key: {
-                "all": words["filter_all"],
-                "irrigation": words["filter_irrigation"],
-                "soil": words["filter_soil"],
-                "stable": words["filter_stable"],
+                "all": "All (30)" if st.session_state.lang == "en" else "Byose (30)",
+                "irrigation": "Irrigation" if st.session_state.lang == "en" else "Kuhira",
+                "soil": "Hillside" if st.session_state.lang == "en" else "Ubutaka",
+                "stable": "Stable" if st.session_state.lang == "en" else "Bitekanye",
             }[key],
-            default="irrigation" if role != "agronomist" else "all",
+            default="all" if role == "agronomist" else "irrigation",
+            label_visibility="collapsed",
             key="alert_filter",
         )
         if shown is None:
             shown = "all" if role == "agronomist" else "irrigation"
-        dry_cut = st.slider(words["filter_rain"], min_value=-40, max_value=10, value=-10 if role == "agronomist" else 10, step=5, key="dry_cut")
+        dry_cut = st.slider(words["filter_rain"], min_value=-40, max_value=10, value=10, step=5, key="dry_cut")
+        st.markdown(layer_legend(layer, words), unsafe_allow_html=True)
     view = alerts.copy()
     if shown == "irrigation":
         view = view[view["alert"].isin(["irrigation_gap", "irrigate_now", "dry_watch"])]
@@ -1036,13 +1092,11 @@ elif page == "alerts":
     geo_path = APP_TABLES / "districts.geojson"
     geojson = load_geojson(geo_path.stat().st_mtime if geo_path.exists() else 0)
     district_names = list(alerts["district"])
-    with map_col:
+    with col_map:
         if geojson is not None:
-            components.html(alert_map(view if not view.empty else alerts, forecast, geojson, words, layer=layer), height=520, scrolling=False)
+            components.html(alert_map(view if not view.empty else alerts, forecast, geojson, words, layer=layer), height=560, scrolling=False)
         else:
             st.markdown(f'<div class="note-box">{words["map_missing"]}</div>', unsafe_allow_html=True)
-    with legend_col:
-        st.markdown(layer_legend(layer, words), unsafe_allow_html=True)
     table_rows = [
         (
             item["district"],
@@ -1062,12 +1116,24 @@ elif page == "alerts":
         unsafe_allow_html=True,
     )
 
-    chosen = st.selectbox(
-        words["pick_district"],
-        district_names,
-        index=district_names.index("Nyaruguru") if "Nyaruguru" in district_names else 0,
-        key="district_pick",
+    st.markdown(
+        f"""
+        <div class="inner-wrap" style="margin-top:32px; margin-bottom:12px;">
+          <p class="kicker-green">{"ISUZUMA RY'AKARERE KU KANDI" if st.session_state.lang == "rw" else "DISTRICT AGROMETEOROLOGICAL PROFILE & PROVABLE AUDIT"}</p>
+          <h2 style="font-size:22px; margin-top:2px; margin-bottom:6px;">{"Hitamo Akarere ushaka gusuzuma mu buryo burambuye:" if st.session_state.lang == "rw" else "Select District for Deep Biophysical & Evidence Audit:"}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+    col_pick, col_dummy = st.columns([1.5, 2.5], vertical_alignment="center")
+    with col_pick:
+        chosen = st.selectbox(
+            words["pick_district"],
+            district_names,
+            index=district_names.index("Nyaruguru") if "Nyaruguru" in district_names else 0,
+            label_visibility="collapsed",
+            key="district_pick",
+        )
     row = alerts[alerts["district"] == chosen].iloc[0]
     if row["alert"] in {"irrigation_gap", "irrigate_now", "dry_watch"}:
         action = words["action_irrigation"]
@@ -1155,7 +1221,7 @@ elif page == "alerts":
     if u0.button(words["ussd_0"], key="ussd_h"):
         st.session_state.ussd_step = "home"
         st.rerun()
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)
 
 elif page == "dashboard":
     page_head(
@@ -1430,7 +1496,7 @@ elif page == "dashboard":
     d1.button(words["nav_alerts"], width="stretch", key="dash_to_alerts", on_click=jump, args=("alerts",))
     d2.button(words["nav_advise"], width="stretch", key="dash_to_advise", on_click=jump, args=("advise",))
     d3.button(words["nav_simulator"], width="stretch", key="dash_to_sim", on_click=jump, args=("simulator",))
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)
 
 
 elif page == "simulator":
@@ -1443,7 +1509,6 @@ elif page == "simulator":
         action=words.get("banner_action_simulator"),
         tags=["28,000+ Plot Microdata", "Ridge & Random Forest", "MINAGRI 50% SSIT Subsidy"],
     )
-    more_bar(words)
     tab_yield, tab_ssit = st.tabs([words["nav_simulator"], words["ssit_title"]])
     district_names = sorted(sim_base["district"].unique()) if not sim_base.empty else sorted(alerts["district"].unique())
     with tab_yield:
@@ -1539,7 +1604,7 @@ elif page == "simulator":
             + "</div>",
             unsafe_allow_html=True,
         )
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)
 
 elif page == "advise":
     page_head(
@@ -1897,7 +1962,7 @@ elif page == "advise":
             unsafe_allow_html=True,
         )
 
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)
 
 elif page == "data":
     page_head(
@@ -1909,7 +1974,6 @@ elif page == "data":
         action=words.get("banner_action_data"),
         tags=["Open Data Standard", "CSV / GeoJSON / Parquet", "Automated ETL"],
     )
-    more_bar(words)
     t_sources, t_overview, t_crops, t_calendar, t_rain = st.tabs([
         words["tab_sources"],
         words["tab_overview"],
@@ -2106,7 +2170,7 @@ elif page == "data":
         view_rain[words["diff_col"]] = view_rain["difference_mm"].round(1)
         show_table(view_rain[[words["month_col"], words["rain_col"], words["usual_col"], words["diff_col"]]])
 
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)
 
 elif page == "about":
     page_head(
@@ -2199,12 +2263,4 @@ elif page == "about":
             unsafe_allow_html=True,
         )
 
-    t1, t2, t3 = st.columns(3)
-    t1.button(words["nav_alerts"], width="stretch", key="about_alerts", on_click=jump, args=("alerts",))
-    t2.button(words["nav_dashboard"], width="stretch", key="about_dash", on_click=jump, args=("dashboard",))
-    t3.button(words["nav_simulator"], width="stretch", key="about_sim", on_click=jump, args=("simulator",))
-    t4, t5, t6 = st.columns(3)
-    t4.button(words["nav_advise"], width="stretch", key="about_advise", on_click=jump, args=("advise",))
-    t5.button(words["nav_data"], width="stretch", key="about_data", on_click=jump, args=("data",))
-    t6.button(words["nav_home"], width="stretch", key="about_home", on_click=jump, args=("home",))
-    st.markdown(site_footer(words), unsafe_allow_html=True)
+    render_footer(words)

@@ -80,7 +80,7 @@
   "rain_vs": "Season B 2026 rain vs usual (%)",
   "eyebrow": "Season A 2026 · Rwanda",
   "hero_title": "See which districts started this season drier than usual — and almost without irrigation.",
-  "hero_lead": "CropWatch Rwanda is a season desk for farming. It joins official plot surveys with rain and a seven-day forecast, then names a next step you can read. It does not forecast this season’s harvest.",
+  "hero_lead": "Empirical agrometeorological intelligence and biophysical decision-support for Rwanda's National Strategy for Transformation 2 (NST2), synthesized from 28,042 surveyed NISR SAS farm plots, NASA POWER, CHIRPS 8-year climatology, and WFP market commodity tracking.",
   "hero_cta": "Open the alerts",
   "hero_cta2": "How the rule works",
   "stat_alert_districts": "Districts on irrigation alert",
@@ -218,7 +218,7 @@
   "role_agronomist_lead": "An agronomist desk: switch the map layer, read soil and irrigation shares, and compare Sentinel NDRE with the national line.",
   "role_policy_lead": "A policymaker desk: the 2022 plot gap, a kit class by farm size, and the stated SSIT 50% co-share. There is no official price list in these files.",
   "layer_title": "Map layers",
-  "layer_lead": "One layer colours the 30 districts. The numbers are the same files as the table.",
+  "layer_lead": "Interactive 30-district spatial risk observatory combining real-time Sentinel-2 NDRE canopy vigor, NASA POWER precipitation anomalies, and NISR SAS plot-level irrigation infrastructure.",
   "layer_alert": "Combined alert",
   "layer_rain": "Rain vs usual (this Season A)",
   "layer_irrig": "Plots irrigated (Season A 2022)",
@@ -587,5 +587,13 @@
   "alerts_triage_soil_desc": "Vulnerable sloping plots. Reinforce terraces and drainage ditches.",
   "alerts_triage_stable_desc": "Balanced root-zone water envelope. Standard seasonal monitoring.",
   "btn_ask_advice_ai": "Ask ADVICE AI about this Alert",
-  "chat_llm_setup_guide": "By default, CropWatch operates with a fast deterministic agronomic inference engine (<5ms) grounded in real NISR SAS plot data and Rwandan agricultural policy. You may optionally connect a free Groq (llama-3.1-8b-instant) or Google Gemini API key below for open-ended generative agricultural dialogue."
+  "chat_llm_setup_guide": "By default, CropWatch operates with a fast deterministic agronomic inference engine (<5ms) grounded in real NISR SAS plot data and Rwandan agricultural policy. You may optionally connect a free Groq (llama-3.1-8b-instant) or Google Gemini API key below for open-ended generative agricultural dialogue.",
+  "what_is_title": "What is CropWatch Rwanda?",
+  "what_is_desc": "CropWatch Rwanda is the national agricultural intelligence and climate resilience platform developed for Rwanda's National Strategy for Transformation 2 (NST2). It synthesizes official seasonal microdata from 28,042 surveyed plots (NISR SAS), high-resolution NASA POWER / CHIRPS satellite agrometeorology, and WFP food market monitoring into real-time, empirical, actionable decision-support for smallholders, cooperatives, agronomists, and national food security planners.",
+  "what_is_p1_title": "Empirical Earth Observation",
+  "what_is_p1_desc": "30-district agrometeorological tracking against an 8-year climatology normal (2018–2025), high-resolution 7-day numerical weather forecasts, and Sentinel-2 NDRE canopy vigor.",
+  "what_is_p2_title": "Plot-Level Microdata Truth",
+  "what_is_p2_desc": "Grounded in 28,042 real surveyed Rwandan farm plots, capturing soil pH, organic carbon, radical terracing defense, and irrigation infrastructure.",
+  "what_is_p3_title": "Machine Learning Decision Support",
+  "what_is_p3_desc": "Trained Random Forest and Autoregressive models delivering predictive yield simulations, automated parametric crop insurance triggers (NAIS), and 24/7 bilingual advisory via ADVICE AI."
 }

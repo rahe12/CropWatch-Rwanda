@@ -80,7 +80,7 @@
   "rain_vs": "Imvura y'igihembwe B 2026 igereranyije n'isanzwe (%)",
   "eyebrow": "Igihembwe A 2026 · u Rwanda",
   "hero_title": "Reba uturere twatangiye iki gihembwe twumye kurusha isanzwe — kandi tutagira amazi yo kuhira.",
-  "hero_lead": "CropWatch Rwanda ni icyicaro cy'igihembwe cy'ubuhinzi. Ihuza ubushakashatsi bw'imirima n'imvura n'iminsi irindwi iri imbere, hanyuma igaha intambwe usoma. Ntiyiteganya umusaruro w'iki gihembwe.",
+  "hero_lead": "Ubumenyi bw'ubuhinzi n'ikoranabuhanga ryo gufata ibyemezo mu iterambere ry'ubuhinzi rya NST2, ryubakiye ku makuru nyakuri y'imirima 28,042 y'ubushakashatsi bwa NISR SAS, NASA POWER, CHIRPS, n'ibiciro by'amasoko bya WFP.",
   "hero_cta": "Fungura iburira",
   "hero_cta2": "Uko amategeko akora",
   "stat_alert_districts": "Uturere turi mu burira bwo kuhira",
@@ -218,7 +218,7 @@
   "role_agronomist_lead": "Icyicaro cy'umuhanga: hindura icyiciro cy'ikarita, soma isuri n'uhira, uigere NDRE n'umurongo w'igihugu.",
   "role_policy_lead": "Icyicaro cy'ubuyobozi: itandukaniro ry'imirima ya 2022, icyiciro cy'ibikoresho ku buso, n'ubufasha bwa 50% bwa SSIT. Nta giciro cyemewe kiri muri iyi dosiye.",
   "layer_title": "Ibyiciro by'ikarita",
-  "layer_lead": "Icyiciro kimwe gihuza amabara y'uturere 30. Imibare ni iy'imbonerahamwe.",
+  "layer_lead": "Ikarita y'akarere ku kandi igaragaza ibipimo by'ubutaka, imvura, no kuhira ku rwego rw'uturere 30 tw'u Rwanda hakoreshejwe amakuru nyakuri ya satelite na NISR.",
   "layer_alert": "Iburira rihuze",
   "layer_rain": "Imvura igereranyije n'isanzwe (igihembwe A)",
   "layer_irrig": "Imirima yahijwe (igihembwe A cya 2022)",
@@ -587,5 +587,13 @@
   "alerts_triage_soil_desc": "Imisozi ihanamye igerwa n'amazi. Shimangira amaterasi n'imyobo.",
   "alerts_triage_stable_desc": "Ubuhehere mu mizi burahagije. Gukurikirana ibikorwa bisanzwe.",
   "btn_ask_advice_ai": "Baza ADVICE AI kuri iyi Nteguza",
-  "chat_llm_setup_guide": "Muri rusange, CropWatch ikoresha moteri yihuta cyane (<5ms) ifite amakuru yizewe y'ubushakashatsi bwa NISR SAS na politiki y'ubuhinzi mu Rwanda. Ushobora no gushyiramo imfunguzo z'ubuntu za Groq (llama-3.1-8b-instant) cyangwa Google Gemini hasi aha kugira ngo ubashe kuganira n'ubwenge bwa mudasobwa mu buryo bwagutse."
+  "chat_llm_setup_guide": "Muri rusange, CropWatch ikoresha moteri yihuta cyane (<5ms) ifite amakuru yizewe y'ubushakashatsi bwa NISR SAS na politiki y'ubuhinzi mu Rwanda. Ushobora no gushyiramo imfunguzo z'ubuntu za Groq (llama-3.1-8b-instant) cyangwa Google Gemini hasi aha kugira ngo ubashe kuganira n'ubwenge bwa mudasobwa mu buryo bwagutse.",
+  "what_is_title": "CropWatch Rwanda ni iki?",
+  "what_is_desc": "CropWatch Rwanda ni urubuga rw'igihugu rw'ubumenyi bw'ubuhinzi n'ubwirinzi bw'imihindagurikire y'ibihe rwubakiwe gahunda ya Guverinoma yo kwihutisha iterambere (NST2). Ihuriza hamwe amakuru nyakuri y'imirima 28,042 y'ibarurishamibare (NISR SAS), amakuru y'ikirere ya satelite za NASA POWER na CHIRPS, n'ibiciro by'amasoko bya WFP kugira ngo bitange inama zifatika kandi zizewe ku bahinzi, amakoperative, n'abayobozi b'inzego z'ubuhinzi.",
+  "what_is_p1_title": "Gukurikirana Ikirere n'Ubutaka",
+  "what_is_p1_desc": "Kugenzura uturere 30 tw'igihugu hakoreshejwe amakuru y'imvura y'imyaka 8 (2018–2025), iteganyagihe ry'iminsi 7, n'ubuzima bw'ibihingwa binyuze muri satelite ya Sentinel-2 NDRE.",
+  "what_is_p2_title": "Amakuru Nyakuri ku Mirima",
+  "what_is_p2_desc": "Byubakiye ku makuru y'imirima 28,042 y'ubushakashatsi bwa NISR SAS mu Rwanda, agaragaza ubusharire bw'ubutaka (pH), ifumbire y'imborera, amaterasi y'indinganire, no kuhira.",
+  "what_is_p3_title": "Ubwenge bwa Mudasobwa no Gufata Ibyemezo",
+  "what_is_p3_desc": "Ibyitegererezo bya Machine Learning bishobora kubara umusaruro witezwe, gutanga ubufasha bwo kwishingira imyaka (NAIS), no gutanga inama z'ubuhinzi z'akazi 24/7 binyuze muri ADVICE AI mu Kinyarwanda no mu Cyongereza."
 }

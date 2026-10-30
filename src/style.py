@@ -1688,6 +1688,110 @@ footer.landing-footer { display: block !important; }
   font-size: 10.5px;
   color: #0d4f2b;
 }
+
+/* What is CropWatch Rwanda Hero Component */
+.what-is-hero-card {
+  background: rgba(6, 35, 20, 0.85);
+  border: 1px solid rgba(196, 163, 90, 0.45);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 18px 0 22px 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+}
+.what-is-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(196, 163, 90, 0.2);
+  border: 1px solid #c4a35a;
+  border-radius: 999px;
+  padding: 3px 11px;
+  color: #e2c87d;
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.what-is-hero-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #e6f4ea;
+  margin: 0 0 14px 0;
+}
+.what-is-hero-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.what-is-hero-pillar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+.what-is-hero-pillar .pillar-icon {
+  font-size: 17px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.what-is-hero-pillar strong {
+  display: block;
+  font-size: 11.5px;
+  color: #ffffff;
+  font-weight: 750;
+  margin-bottom: 2px;
+}
+.what-is-hero-pillar p {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #cfe3d5;
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .what-is-hero-pillars { grid-template-columns: 1fr; }
+}
+
+/* Map Command Deck & Observatory Styling */
+.map-controls-deck {
+  background: #ffffff;
+  border: 1px solid #d5ddd0;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 14px 8px 14px;
+  border-bottom: 2.5px solid #0d4f2b;
+  margin-bottom: 8px;
+}
+.deck-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.deck-icon {
+  font-size: 22px;
+}
+.deck-header strong {
+  display: block;
+  font-size: 13.5px;
+  color: #062314;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.deck-header small {
+  display: block;
+  font-size: 11px;
+  color: #55705d;
+  font-weight: 500;
+}
+iframe {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #d5ddd0 !important;
+}
 """
 
 
