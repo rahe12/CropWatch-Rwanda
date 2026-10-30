@@ -85,21 +85,17 @@ flowchart TD
 
 ## 4. Core Platform Desks
 
-The platform organizes national agricultural intelligence into a natural, intuitive 11-desk operational pipeline:
+The platform organizes national agricultural intelligence into a streamlined, unified 7-desk operational pipeline:
 
 | Module / Page | Operational Focus | Key Data Sources & Capabilities |
 |---|---|---|
 | **Executive Briefing** (`home`) | National Snapshot | National crisis snapshot, live pilot cards, 3-stage decision workflow, and NST2 strategic objectives. |
 | **Alerts & Warnings** (`alerts`) | Early Warning & Water Deficit | Interactive 30-district Folium GIS map with layer toggles (Alerts, Rain Deficit, Irrigation, Soil Risk, NDRE), 7-day weather forecast, and automated irrigation triggers. |
-| **National Dashboard** (`dashboard`) | 30-District Agricultural Matrix | Longitudinal analysis across 2018–2026 SAS data, district-level productivity benchmarks, input adoption shares, and downloadable executive briefing notes. |
-| **Climate Pilot** (`pilot`) | High-Resolution Agrometeorology | Direct NASA POWER daily telemetry for Bugesera, Nyagatare, Musanze, and Nyaruguru. Solar radiation ($MJ/m^2$), 2m air temperature, ET₀, and Penman-Monteith crop water balance. |
-| **Soil & Terraces** (`soil`) | Land Conservation & Acidity | Slope-weighted erosion risks, radical vs progressive terracing priority rankings, and agricultural lime subsidy targets for acidic highland soils. |
-| **Season Watch** (`watch`) | Multi-Season Climate Chronology | Rainfall anomalies across Seasons A, B, and C (2018–2026), Copernicus Sentinel-2 NDRE vegetation health, and WFP VAM retail food market price tracking. |
+| **National Analytics Hub** (`dashboard`) | Unified 30-District Intelligence | **Tab 1: 30-District Agricultural Matrix** (productivity benchmarks & SAS microdata).<br>**Tab 2: Multi-Season Climate Chronology** (CHIRPS anomalies, Sentinel-2 NDRE trendlines 2018–2026, WFP food commodity price tracking).<br>**Tab 3: Hillside Soil Conservation** (slope erosion risk ranking, radical vs progressive terracing targets, lime subsidy priorities). |
 | **Yield Simulator** (`simulator`) | Predictive Modeling & SSIT Subsidy | Random Forest yield predictions trained on 28,000+ SAS plot microdata, paired with an interactive MINAGRI SSIT 50% equipment subsidy calculator. |
-| **Field Advisory & USSD** (`advise`) | Extension Copilot & Mobile Gateway | Bilingual agronomic AI assistant for crop diagnostics and fertilizer management, with automated Web Speech voice audio and 160-character SMS packaging for offline mobile networks. |
+| **AI Agronomic Copilot** (`advise`) | Senior Conversational Intelligence | Bilingual agronomic AI assistant with automatic district entity extraction (NER), interactive one-click follow-up action chips, automated Web Speech voice audio, and 160-character SMS packaging for offline mobile networks. |
 | **Open Data** (`data`) | Data Catalog & Governance | Transparent catalog of all cleaned district tables, seasonal crop calendars, price match indices, GeoJSON shapefiles, and direct CSV/JSON downloads. |
-| **Methodology** (`method`) | Scientific Validation & Glossary | Mathematical formulations (FAO-56 Penman-Monteith, Hargreaves), out-of-sample machine learning cross-validation metrics (RMSE, MAE, R²), and agrometeorological glossary. |
-| **Institutional Charter** (`about`) | Governance & NST2 Alignment | Institutional provenance (MINAGRI, NISR, RAB, Meteo Rwanda), ethical AI guardrails, and decision-support transparency standards. |
+| **Institutional Charter** (`about`) | Governance, Team & Methodology | Institutional provenance (MINAGRI, NISR, RAB, Meteo Rwanda), verified hackathon engineering team credentials, and expandable scientific validation & machine learning benchmark documentation. |
 
 ---
 

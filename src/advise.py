@@ -181,6 +181,72 @@ def llm_status():
 # ==============================================================================
 # SEMANTIC INTENT CLASSIFICATION & DIALOGUE RECOGNITION
 # ==============================================================================
+RWANDA_DISTRICTS = [
+    "Bugesera", "Nyagatare", "Musanze", "Nyaruguru", "Gatsibo", "Kayonza", "Rwamagana", "Kirehe",
+    "Ngoma", "Gasabo", "Kicukiro", "Nyarugenge", "Rulindo", "Gakenke", "Burera", "Gicumbi",
+    "Kamonyi", "Muhanga", "Ruhango", "Nyanza", "Huye", "Gisagara", "Nyamagabe", "Rusizi",
+    "Nyamasheke", "Karongi", "Rutsiro", "Rubavu", "Nyabihu", "Ngororero"
+]
+
+
+def extract_district(text):
+    """Senior-grade NER entity extraction: detects any of Rwanda's 30 districts from natural text."""
+    if not text:
+        return None
+    raw = text.lower()
+    for d in RWANDA_DISTRICTS:
+        pattern = r"\b" + re.escape(d.lower()) + r"\b"
+        if re.search(pattern, raw):
+            return d
+    return None
+
+
+def get_followups(intent, lang="en"):
+    """Returns 3 clickable suggested follow-up prompts for conversational flow."""
+    is_rw = (lang == "rw")
+    followup_map = {
+        "yield": [
+            ("💧 Inyungu yo Kuhira" if is_rw else "💧 Irrigation Uplift"),
+            ("💰 Ibiciro bya WFP n'Ubuhuniki" if is_rw else "💰 WFP Price Forecast"),
+            ("📱 Kohereza SMS ku Bahinzi" if is_rw else "📱 Generate 160-Char SMS"),
+        ],
+        "irrigation": [
+            ("🧪 Kubara Umusaruro wose" if is_rw else "🧪 Run Yield Simulation"),
+            ("🛡️ Ubwishingizi bwa NAIS" if is_rw else "🛡️ NAIS Drought Insurance"),
+            ("💰 Gahunda ya SSIT ya 50%" if is_rw else "💰 50% SSIT Equipment Subsidy"),
+        ],
+        "insurance": [
+            ("💧 Uburyo bwo Kuhira" if is_rw else "💧 Smart Irrigation Strategy"),
+            ("🌧️ Iteganyagihe ry'Icyumweru" if is_rw else "🌧️ 7-Day Rainfall Forecast"),
+            ("📱 Kohereza Ubutumwa bwa SMS" if is_rw else "📱 Send Rural SMS Alert"),
+        ],
+        "market": [
+            ("🧪 Umusaruro w'Ibigori" if is_rw else "🧪 Maize Harvest Yield"),
+            ("📦 Inyungu y'Imifuka ya PICS" if is_rw else "📦 Hermetic PICS Bag Profit"),
+            ("📅 Iteganyagihe ry'Icyumweru" if is_rw else "📅 7-Day Weather Forecast"),
+        ],
+        "pests": [
+            ("🧪 Umusaruro n'Ifumbire" if is_rw else "🧪 Yield with Fertilizer"),
+            ("💧 Gahunda yo Kuhira" if is_rw else "💧 Irrigation Schedule"),
+            ("⛰️ Amaterasi n'Ubutaka" if is_rw else "⛰️ Hillside Soil Terracing"),
+        ],
+        "soil": [
+            ("💧 Ubuhehere bw'Amazi" if is_rw else "💧 Water Deficit Strategy"),
+            ("🧪 Kubara Umusaruro" if is_rw else "🧪 Calculate Yield Uplift"),
+            ("🛡️ Ibyago by'Amapfa" if is_rw else "🛡️ Drought Risk Trigger"),
+        ],
+        "team": [
+            ("🏛️ Gahunda ya NST2" if is_rw else "🏛️ NST2 Priority 1 Goals"),
+            ("🧪 Kubara Umusaruro" if is_rw else "🧪 Predict Maize Yield"),
+            ("📁 Ububiko bw'Amakuru" if is_rw else "📁 Open Data Registry"),
+        ],
+    }
+    return followup_map.get(intent, [
+        ("🧪 Kubara Umusaruro (ML)" if is_rw else "🧪 Predict Maize Yield (ML)"),
+        ("💧 Kureba Icyuho cy'Amazi" if is_rw else "💧 Check Irrigation Deficit"),
+        ("💰 Ibiciro ku Masoko" if is_rw else "💰 Market Prices & Arbitrage"),
+    ])
+
 
 def classify(text, context=None):
     """Classifies user query intent using semantic patterns, keyword clusters,
@@ -191,6 +257,10 @@ def classify(text, context=None):
     # 1. Greetings
     if raw in HELLO_WORDS or raw.startswith(("hey ", "hi ", "hello ", "muraho ", "bite ")):
         return "hello"
+
+    # 1b. Engineering Team & Hackathon Authorship
+    if any(k in raw for k in ("who created", "who built", "authors", "creator", "developers", "team", "hackathon", "murenzi", "bahire", "polytechnic", "byakozwe na nde", "irushanwa", "abakoze uyu mushinga")):
+        return "team"
 
     # 2. General Agricultural Definitions / Terminology
     if any(k in raw for k in ("what does yield mean", "what is yield", "define yield", "ibisobanuro by'umusaruro", "umusaruro bishatse kuvuga iki")):
@@ -850,6 +920,29 @@ def answer(user_text, profile, words, lang, hectares=0.5, force_intent=None, con
   3. *CHIRPS & Open-Meteo:* Longitudinal rainfall anomalies and 7-day numerical forecasts.
 
 👉 *[Access the Open Data Registry](?page=data)*"""
+    elif intent == "team":
+        if lang == "rw":
+            resp = """### 👥 Itsinda ry'Abahanga ryakoze CropWatch Rwanda
+
+* **Irushanwa ry'Ubushakashatsi:** Umushinga wateguriwe irushanwa rya **NISR 2026 Big Data Hackathon** riyobowe n'Ikipe ya Data Science muri NISR.
+* **Abahanga mu Bwubatsi bwa Software n'Ubuhinzi:**
+  1. **MURENZI Elvis** (Reg: `26RP01872`) — Rwanda Polytechnic (Musanze College), BTech mu By'Ikoranabuhanga (IT), Umwaka wa 4.
+     - *Inshingano:* Full-Stack Architecture, FastAPI REST API, gutoza no guhuza models za Machine Learning, amajwi ya Web Speech API, na SMS kuri telefoni zisanzwe.
+  2. **BAHIRE Elie** (Reg: `26RP02259`) — Rwanda Polytechnic (Musanze College), BTech mu Buhinzi n'Ibyo Kuhira (Irrigation & Drainage), Umwaka wa 4.
+     - *Inshingano:* Imiterere y'amazi mu mizi y'ibihingwa (FAO-56 Penman-Monteith), gahunda ya SSIT ya 50% ya Leta, n'ingamba zo kurwanya isuri ku misozi ihanamye.
+
+👉 *[Reba amakuru arambuye y'Itsinda n'Ikarita y'Umunyeshuri](?page=about)*"""
+        else:
+            resp = """### 👥 Engineering Team Behind CropWatch Rwanda
+
+* **Competition & Context:** Built for the **NISR 2026 Big Data Hackathon** organized by the National Institute of Statistics of Rwanda (NISR) Data Science Team.
+* **Multidisciplinary Student Engineering Team:**
+  1. **MURENZI Elvis** (Reg: `26RP01872`) — Rwanda Polytechnic (Musanze College), BTech in Information Technology, Year 4.
+     - *Focus:* Full-Stack Architecture, FastAPI microservice, local scikit-learn ML inference pipelines, Web Speech voice synthesis, and bilingual engine.
+  2. **BAHIRE Elie** (Reg: `26RP02259`) — Rwanda Polytechnic (Musanze College), BTech in Irrigation and Drainage Technology, Year 4.
+     - *Focus:* FAO-56 Penman-Monteith root-zone crop water accounting, MINAGRI 50% SSIT subsidy modeling, and hillside erosion control matrices.
+
+👉 *[View full team credentials and verified student cards](?page=about)*"""
     elif intent == "hello":
         d = profile["district"]
         if lang == "rw":
