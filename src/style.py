@@ -1485,6 +1485,178 @@ footer.landing-footer { display: block !important; }
   transform: translateY(-2px) !important;
   box-shadow: 0 4px 12px rgba(13, 79, 43, 0.22) !important;
 }
+
+/* Real-Time Alert Telemetry & Triage */
+.alert-telemetry-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--lp-line);
+  border-radius: 8px;
+  padding: 10px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.telemetry-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #2c3a2f;
+}
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pulse-dot.green {
+  background-color: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
+  animation: statusPulse 2s infinite;
+}
+.pulse-dot.gold {
+  background-color: #c4a35a;
+  box-shadow: 0 0 6px rgba(196, 163, 90, 0.8);
+}
+.pulse-dot.blue {
+  background-color: #2563eb;
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.8);
+}
+
+.alert-triage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.alert-triage-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--lp-line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.alert-triage-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+}
+.alert-triage-card.critical { border-top: 4px solid #b42318; background: #fffbfa; }
+.alert-triage-card.high { border-top: 4px solid #d97706; background: #fffdf5; }
+.alert-triage-card.soil { border-top: 4px solid #2563eb; background: #f8faff; }
+.alert-triage-card.stable { border-top: 4px solid #16a34a; background: #f6fcf8; }
+
+.triage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.triage-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--lp-muted);
+}
+.triage-count {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+.alert-triage-card.critical .triage-count { color: #b42318; }
+.alert-triage-card.high .triage-count { color: #d97706; }
+.alert-triage-card.soil .triage-count { color: #2563eb; }
+.alert-triage-card.stable .triage-count { color: #16a34a; }
+.triage-desc {
+  font-size: 12px;
+  color: #3f4e43;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+/* Provable Evidence Box */
+.provable-evidence-box {
+  background: #ffffff;
+  border: 1.5px solid #c4a35a;
+  border-radius: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(196, 163, 90, 0.08);
+}
+.evidence-math-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: #e5ece2;
+  border-bottom: 1px solid #e5ece2;
+}
+.evidence-math-cell {
+  background: #ffffff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.math-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4a5a4e;
+  margin-bottom: 4px;
+}
+.math-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #062615;
+  margin-bottom: 2px;
+}
+.math-formula {
+  font-size: 11px;
+  color: #6c7d70;
+  font-family: monospace;
+}
+.evidence-audit-footer {
+  padding: 12px 18px;
+  background: #f7faf6;
+}
+.evidence-stamp {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.stamp-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.evidence-stamp strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #0d4f2b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.evidence-stamp p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #3b4e40;
+}
+.evidence-stamp code {
+  background: #e8efe7;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  color: #0d4f2b;
+}
 """
 
 

@@ -577,5 +577,14 @@
   "tab_matrix": "📊 Imbonerahamwe y'Uturere 30",
   "tab_climate": "🌱 Ibihembwe n'Ibiciro bya WFP",
   "tab_soil": "⛰️ Kurwanya Isuri n'Amaterasi",
-  "about_method_title": "🔬 Uburyo bwa Gihanga n'Ibipimo bya Machine Learning"
+  "about_method_title": "🔬 Uburyo bwa Gihanga n'Ibipimo bya Machine Learning",
+  "alerts_triage_critical": "Ibyihutirwa by'Amacandwe",
+  "alerts_triage_high": "Icyuho cy'Amazi yo Kuhira",
+  "alerts_triage_soil": "Isuri n'Itembana ry'Ubutaka",
+  "alerts_triage_stable": "Ubuhehere n'Ubutaka Bibereyeho",
+  "alerts_triage_critical_desc": "Imvura nkeya n'ubuso butuhirwa <10%. Hakenewe moteri za SSIT byihuse.",
+  "alerts_triage_high_desc": "Icyuho cy'imvura. Tegura uburyo bwo kunganira imyaka ukoresheje amazi.",
+  "alerts_triage_soil_desc": "Imisozi ihanamye igerwa n'amazi. Shimangira amaterasi n'imyobo.",
+  "alerts_triage_stable_desc": "Ubuhehere mu mizi burahagije. Gukurikirana ibikorwa bisanzwe.",
+  "btn_ask_advice_ai": "Baza ADVICE AI kuri iyi Nteguza"
 }

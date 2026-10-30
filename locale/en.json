@@ -577,5 +577,14 @@
   "tab_matrix": "📊 30-District Agricultural Matrix",
   "tab_climate": "🌱 Multi-Season Climate & Markets",
   "tab_soil": "⛰️ Hillside Soil Conservation & Terraces",
-  "about_method_title": "🔬 Scientific Methodology, FAO-56 Formulations & ML Benchmarks"
+  "about_method_title": "🔬 Scientific Methodology, FAO-56 Formulations & ML Benchmarks",
+  "alerts_triage_critical": "Critical Moisture Stress",
+  "alerts_triage_high": "High Irrigation Gap",
+  "alerts_triage_soil": "Hillside Runoff Risk",
+  "alerts_triage_stable": "Moisture & Soil Stable",
+  "alerts_triage_critical_desc": "Severe deficit & <10% irrigation. Immediate SSIT pump deployment required.",
+  "alerts_triage_high_desc": "Cumulative rainfall deficit. Mobilize supplementary irrigation systems.",
+  "alerts_triage_soil_desc": "Vulnerable sloping plots. Reinforce terraces and drainage ditches.",
+  "alerts_triage_stable_desc": "Balanced root-zone water envelope. Standard seasonal monitoring.",
+  "btn_ask_advice_ai": "Ask ADVICE AI about this Alert"
 }
