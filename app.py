@@ -1301,6 +1301,10 @@ elif page == "watch":
         words["watch_title"],
         words["watch_lead"],
         words,
+        kicker=words.get("kicker_watch"),
+        sources=words.get("banner_sources_watch"),
+        action=words.get("banner_action_watch"),
+        tags=["CHIRPS Climatology", "WFP VAM Prices", "Sentinel-2 NDRE"],
     )
     more_bar(words)
     st.markdown(f'<div class="inner-wrap" style="padding-bottom:0"><p class="section-p">{words["watch_explain"]}</p></div>', unsafe_allow_html=True)
