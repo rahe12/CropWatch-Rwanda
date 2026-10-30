@@ -565,5 +565,13 @@
   "chat_voice_tip": "🔊 Voice Accessibility: Click 'Listen Aloud' on any advice to hear it spoken hands-free.",
   "chat_engine_fast": "⚡ Ultra-Fast Local Agronomic AI Engine Active (Zero Latency)",
   "chat_engine_llm": "⚡ Ultra-Fast Local Engine + Cloud Neural Copilot Connected",
-  "chat_select_prompt": "Select an AI Intelligence Module or ask any agronomic question below:"
+  "chat_select_prompt": "Select an AI Intelligence Module or ask any agronomic question below:",
+  "about_team_title": "Engineering Team & NISR Hackathon Submission",
+  "team_murenzi_name": "MURENZI Elvis",
+  "team_murenzi_role": "Lead Full-Stack Architect & ML Engineer · Year 4 BTech IT",
+  "team_murenzi_desc": "Rwanda Polytechnic (RP) — Musanze College · Reg No: 26RP01872. Lead developer responsible for Streamlit reactive frontend, FastAPI asynchronous REST API, local scikit-learn ML inference pipelines, Web Speech voice synthesis, and bilingual engine.",
+  "team_bahire_name": "BAHIRE Elie",
+  "team_bahire_role": "Lead Agrometeorologist & Irrigation Engineer · Year 4 BTech Irrigation",
+  "team_bahire_desc": "Rwanda Polytechnic (RP) — Musanze College · Reg No: 26RP02259. Lead agronomic researcher responsible for FAO-56 Penman-Monteith crop water accounting, MINAGRI 50% SSIT subsidy modeling, and hillside terracing soil conservation matrices.",
+  "hackathon_badge": "Official NISR 2026 Big Data Hackathon Submission · 30 October 2026"
 }

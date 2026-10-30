@@ -565,5 +565,13 @@
   "chat_voice_tip": "🔊 Uburyo bw'Amajwi ku Bahinzi: Kanda 'Umva Inama Mu Majwi' kugira ngo wumve inama zisomwa.",
   "chat_engine_fast": "⚡ Ubwenge bw'Ubukorano bwa CropWatch burakora byihuse (Nta gutinda)",
   "chat_engine_llm": "⚡ Ubwenge bw'Ubukorano bw'Icyaro + Ubwenge bwo mu Bicumu (Cloud Copilot)",
-  "chat_select_prompt": "Hitamo Igice cy'Ubwenge bw'Ubuhinzi cyangwa ubaze ikibazo icyo aricyo cyose:"
+  "chat_select_prompt": "Hitamo Igice cy'Ubwenge bw'Ubuhinzi cyangwa ubaze ikibazo icyo aricyo cyose:",
+  "about_team_title": "Itsinda ry'Abahanga n'Ibyagezweho mu Irushanwa rya NISR",
+  "team_murenzi_name": "MURENZI Elvis",
+  "team_murenzi_role": "Umuhanga mu By'Ikoranabuhanga & AI · Umwaka wa 4 BTech IT",
+  "team_murenzi_desc": "Rwanda Polytechnic (RP) — Musanze College · Reg No: 26RP01872. Umuhanga mu bwubatsi bwa software, FastAPI REST API, gutoza models za Machine Learning, guhuza amajwi ya Web Speech API no gutunganya ubutumwa bugufi bwa SMS kuri telefoni zisanzwe.",
+  "team_bahire_name": "BAHIRE Elie",
+  "team_bahire_role": "Umuhanga mu Bumenyi bw'Ikirere n'Ibyo Kuhira · Umwaka wa 4 BTech Irrigation",
+  "team_bahire_desc": "Rwanda Polytechnic (RP) — Musanze College · Reg No: 26RP02259. Umuhanga mu miterere y'ubuhehere bw'amazi mu butaka (FAO-56 Penman-Monteith), gahunda ya SSIT 50% ya Leta yo gufasha abahinzi kubona imashini zo kuhira, no kurwanya isuri ku misozi.",
+  "hackathon_badge": "Umushinga w'Irushanwa rya NISR 2026 Big Data Hackathon · 30 Ukwakira 2026"
 }

@@ -194,10 +194,35 @@ Detailed architectural, agronomic, and engineering documentation is provided in 
 - [**Data Sources & Limitations (`docs/DATA_SOURCES.md`)**](file:///docs/DATA_SOURCES.md): Rigorous catalog of NISR SAS microdata, CHIRPS, NASA POWER, Sentinel-2, WFP VAM, and analytical limitations.
 - [**AI Chatbot & Agronomic Copilot (`docs/CHATBOT.md`)**](file:///docs/CHATBOT.md): Conversational architecture, 16 semantic intents, Web Speech API audio, and 160-char SMS generator.
 - [**Quality Assurance & Testing (`docs/TESTING.md`)**](file:///docs/TESTING.md): Verification test suites, model cross-validation benchmarks, and bilingual parity checks.
+- [**Official Hackathon Submission (`docs/HACKATHON_SUBMISSION.md`)**](file:///docs/HACKATHON_SUBMISSION.md): NISR 2026 Big Data Hackathon compliance, team eligibility, and judging criteria mapping.
 
 ---
 
-## 9. Institutional Provenance & Data Partners
+## 9. NISR 2026 Big Data Hackathon Team & Eligibility
+
+This platform was developed for the **NISR 2026 Big Data Hackathon** organized by the **National Institute of Statistics of Rwanda (NISR) Data Science Team**.
+
+In strict accordance with official hackathon eligibility rules, the project was designed and engineered by a multidisciplinary team of two Year 4 undergraduate students from **Rwanda Polytechnic (RP Musanze College)**:
+
+| Team Member | Academic Institution | Registration No | Academic Program | Primary Project Focus | Official Verification |
+|---|---|---|---|---|---|
+| **MURENZI Elvis** | Rwanda Polytechnic (Musanze College) | `26RP01872` | BTech in Information Technology (Year 4) | Full-Stack Architecture, FastAPI REST API, Local ML Inference & Voice TTS | [Student ID Card](file:///docs/team/student_id_murenzi_elvis_26RP01872.pdf) |
+| **BAHIRE Elie** | Rwanda Polytechnic (Musanze College) | `26RP02259` | BTech in Irrigation and Drainage Technology (Year 4) | Agrometeorological Physics, FAO-56 Penman-Monteith Water Balance & Hillside Terracing | [Student ID Card](file:///docs/team/student_id_bahire_elie_26RP02259.pdf) |
+
+Detailed submission deliverables, hackathon judging criteria alignment, and presentation slide mappings are documented in [**`docs/HACKATHON_SUBMISSION.md`**](file:///docs/HACKATHON_SUBMISSION.md).
+
+---
+
+## 10. Video Demonstration Deliverable
+
+In compliance with NISR Hackathon Guidelines (Slides 12 & 13), the project repository includes a dedicated video demonstration folder:
+- **Directory:** [`demo/`](file:///demo/README.md)
+- **Format:** WebM (`.webm`) or GIF (`.gif`) screen recording strictly under 3 minutes.
+- **Walkthrough Script:** Documented in [`demo/README.md`](file:///demo/README.md).
+
+---
+
+## 11. Institutional Provenance & Data Partners
 
 - **NISR (National Institute of Statistics of Rwanda):** Seasonal Agricultural Survey (SAS) plot microdata, agricultural census baselines, and official 30-district administrative boundaries.
 - **MINAGRI (Ministry of Agriculture and Animal Resources):** Strategic agricultural policy frameworks, SSIT guidelines, and crop intensification priorities.
