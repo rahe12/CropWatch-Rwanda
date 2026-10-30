@@ -699,7 +699,7 @@ if "pending_page" in st.session_state:
     if st.query_params.get("page") != dest:
         st.query_params["page"] = dest
 
-col_brand, col_nav, col_lang = st.columns([1.9, 5.4, 1.7], vertical_alignment="center")
+col_brand, col_nav, col_lang = st.columns([1.5, 6.7, 1.8], vertical_alignment="center")
 with col_brand:
     st.markdown(
         f"""
