@@ -1,36 +1,419 @@
 {
+  "level": "plot",
+  "crop": "Maize",
+  "year": 2022,
+  "season": "A",
+  "n_plots_joined": 11260,
+  "n_plots_model": 11148,
+  "n_districts": 30,
+  "yield_window_kg_ha": [
+    0.0,
+    5286.6
+  ],
+  "validation": "5-fold shuffled plots on Season A 2022. District mean uses only the training fold. Sample weight is plot_weight.",
+  "columns": {
+    "erosion_irrigation": "agricultural_practice s4q1 s4q2 s4q3 s4q14 s4q15",
+    "fertilizer": "fertilizer s3q1 s3q3 s3q5 s3q7 s3q9 (not s4q8/s4q11; those are machines)",
+    "rain": "CHIRPS Season A = Sep–Dec previous year + Jan–Feb; Season B = Mar–Jun; usual is 2018–2025",
+    "vegetation": "Sentinel NDRE district mean for the interview year"
+  },
   "models": [
     {
-      "name": "Naive Rain Model (Linear)",
-      "mae_kg_ha": 334.2,
-      "rmse_kg_ha": 435.7,
-      "r2": 0.093,
-      "verdict": "Underperforms baseline; misses soil & input interactions."
+      "name": "Naive rain-only linear",
+      "key": "rain",
+      "mae_kg_ha": 979.4,
+      "rmse_kg_ha": 1203.2,
+      "r2": -0.009,
+      "verdict": "Does not beat the district mean on held-out plots. Not used as a harvest forecast."
     },
     {
-      "name": "Historical District Baseline",
-      "mae_kg_ha": 340.9,
-      "rmse_kg_ha": 425.8,
-      "r2": 0.134,
-      "verdict": "Standard historical average; cannot simulate policy interventions."
+      "name": "Historical district mean",
+      "key": "district",
+      "mae_kg_ha": 942.9,
+      "rmse_kg_ha": 1174.8,
+      "r2": 0.038,
+      "verdict": "Training-fold district mean. Strong because soils and rain cluster by place."
     },
     {
-      "name": "Multi-Factor Random Forest (AI/ML)",
-      "mae_kg_ha": 215.5,
-      "rmse_kg_ha": 270.7,
-      "r2": 0.65,
-      "verdict": "Top performer (-36% error reduction); captures soil, inputs & water."
+      "name": "Multi-factor random forest",
+      "key": "forest",
+      "mae_kg_ha": 918.1,
+      "rmse_kg_ha": 1135.6,
+      "r2": 0.101,
+      "verdict": "Beats the district mean on held-out plots. Still an association, not this season's harvest."
+    },
+    {
+      "name": "Multi-factor gradient boosting",
+      "key": "boost",
+      "mae_kg_ha": 914.0,
+      "rmse_kg_ha": 1128.0,
+      "r2": 0.113,
+      "verdict": "Beats the district mean on held-out plots. Still an association, not this season's harvest."
     }
   ],
   "feature_importances": {
-    "rain_mm": 0.3912,
-    "rain_diff_pct": 0.1867,
-    "vegetation_mean": 0.1154,
-    "organic_pct": 0.1132,
-    "inorganic_pct": 0.0685,
-    "irrigated_pct": 0.0531,
-    "protected_pct": 0.0407,
-    "concern_pct": 0.0313
+    "inorganic": 0.4942,
+    "rain_diff_pct": 0.2906,
+    "vegetation_mean": 0.177,
+    "organic_short": 0.0159,
+    "organic": 0.0094,
+    "erosion_moderate": 0.0086,
+    "protected": 0.0026,
+    "irrigated": 0.0016,
+    "erosion_severe": 0.0001
   },
-  "n_samples": 300
+  "within_district_kg_ha": {
+    "irrigated": 365.3,
+    "organic": 304.6,
+    "organic_short": -190.7,
+    "inorganic": 523.7,
+    "protected": -106.9,
+    "erosion_moderate": -182.0,
+    "erosion_severe": -374.5
+  },
+  "note": "What-if kg/ha come from Season A 2022 within-district OLS. Other years are scored in slices and in the pooled table. None of these is a 2026 harvest.",
+  "coverage": [
+    {
+      "year": 2018,
+      "season": "A/B",
+      "status": "skip",
+      "reason": "Crop file has no plot_weight. 2018 area is m2 converted to ha in preparation. Practice file is not in 2018."
+    },
+    {
+      "year": 2019,
+      "season": "A/B",
+      "status": "skip",
+      "reason": "Crop file has no plot_weight. Practice and fertilizer lack s1q6, so the plot join key is incomplete."
+    },
+    {
+      "year": 2020,
+      "season": "A/B",
+      "status": "district-panel",
+      "reason": "Yield = production / harvested area and plot_weight exists, but s4q15 is empty in 2020 so the irrigation flag is missing and the plot join drops. District maize means still enter the leave-one-year-out rain+NDRE panel."
+    },
+    {
+      "year": 2021,
+      "season": "A/B",
+      "status": "district-panel",
+      "reason": "Yield = production / harvested area and plot_weight exists, but the practice/fertilizer join does not keep complete irrigation flags. District maize means still enter the leave-one-year-out rain+NDRE panel."
+    },
+    {
+      "year": 2022,
+      "season": "A/B",
+      "status": "plot",
+      "reason": "Native yield on the crop file. Season A is the questionnaire year used for the what-if sliders."
+    },
+    {
+      "year": 2023,
+      "season": "A/B",
+      "status": "plot",
+      "reason": "Native yield on the crop file."
+    },
+    {
+      "year": 2024,
+      "season": "A/B",
+      "status": "skip",
+      "reason": "No harvested area and no native yield, so kg/ha cannot be formed."
+    },
+    {
+      "year": 2025,
+      "season": "A/B",
+      "status": "plot",
+      "reason": "Native yield on the crop file."
+    },
+    {
+      "year": 2026,
+      "season": "A/B",
+      "status": "skip",
+      "reason": "SAS 2026 arrived as published tables, not plot files."
+    }
+  ],
+  "slices": [
+    {
+      "year": 2022,
+      "season": "A",
+      "n_joined": 11260,
+      "n_model": 11148,
+      "n_districts": 30,
+      "yield_source": "native",
+      "mean_yield_kg_ha": 1625.2,
+      "rain": {
+        "mae_kg_ha": 979.7,
+        "rmse_kg_ha": 1203.5,
+        "r2": -0.01
+      },
+      "district": {
+        "mae_kg_ha": 942.3,
+        "rmse_kg_ha": 1174.6,
+        "r2": 0.038
+      },
+      "forest": {
+        "mae_kg_ha": 919.1,
+        "rmse_kg_ha": 1136.3,
+        "r2": 0.1
+      },
+      "forest_beats_district": true,
+      "within_district_kg_ha": {
+        "irrigated": 365.3,
+        "organic": 304.6,
+        "organic_short": -190.7,
+        "inorganic": 523.7,
+        "protected": -106.9,
+        "erosion_moderate": -182.0,
+        "erosion_severe": -374.5
+      },
+      "yield_window_kg_ha": [
+        0.0,
+        5286.6
+      ]
+    },
+    {
+      "year": 2022,
+      "season": "B",
+      "n_joined": 4799,
+      "n_model": 4751,
+      "n_districts": 30,
+      "yield_source": "native",
+      "mean_yield_kg_ha": 1220.3,
+      "rain": {
+        "mae_kg_ha": 768.4,
+        "rmse_kg_ha": 1011.6,
+        "r2": 0.003
+      },
+      "district": {
+        "mae_kg_ha": 732.2,
+        "rmse_kg_ha": 976.4,
+        "r2": 0.071
+      },
+      "forest": {
+        "mae_kg_ha": 724.9,
+        "rmse_kg_ha": 961.0,
+        "r2": 0.1
+      },
+      "forest_beats_district": true,
+      "within_district_kg_ha": {
+        "irrigated": 158.2,
+        "organic": 76.3,
+        "organic_short": -26.1,
+        "inorganic": 385.0,
+        "protected": 30.1,
+        "erosion_moderate": 8.5,
+        "erosion_severe": -111.5
+      },
+      "yield_window_kg_ha": [
+        0.0,
+        5307.8
+      ]
+    },
+    {
+      "year": 2023,
+      "season": "A",
+      "n_joined": 7499,
+      "n_model": 7424,
+      "n_districts": 30,
+      "yield_source": "native",
+      "mean_yield_kg_ha": 1457.3,
+      "rain": {
+        "mae_kg_ha": 960.2,
+        "rmse_kg_ha": 1244.5,
+        "r2": 0.004
+      },
+      "district": {
+        "mae_kg_ha": 894.0,
+        "rmse_kg_ha": 1176.7,
+        "r2": 0.11
+      },
+      "forest": {
+        "mae_kg_ha": 881.9,
+        "rmse_kg_ha": 1154.4,
+        "r2": 0.143
+      },
+      "forest_beats_district": true,
+      "within_district_kg_ha": {
+        "irrigated": 318.1,
+        "organic": 170.2,
+        "organic_short": -124.1,
+        "inorganic": 395.4,
+        "protected": 33.6,
+        "erosion_moderate": -68.6,
+        "erosion_severe": -10.8
+      },
+      "yield_window_kg_ha": [
+        0.0,
+        6246.0
+      ]
+    },
+    {
+      "year": 2023,
+      "season": "B",
+      "n_joined": 3990,
+      "n_model": 3950,
+      "n_districts": 30,
+      "yield_source": "native",
+      "mean_yield_kg_ha": 1068.0,
+      "rain": {
+        "mae_kg_ha": 738.8,
+        "rmse_kg_ha": 975.1,
+        "r2": -0.005
+      },
+      "district": {
+        "mae_kg_ha": 733.2,
+        "rmse_kg_ha": 971.1,
+        "r2": 0.003
+      },
+      "forest": {
+        "mae_kg_ha": 717.5,
+        "rmse_kg_ha": 948.5,
+        "r2": 0.049
+      },
+      "forest_beats_district": true,
+      "within_district_kg_ha": {
+        "irrigated": 353.6,
+        "organic": 82.6,
+        "organic_short": -97.1,
+        "inorganic": 364.2,
+        "protected": 90.5,
+        "erosion_moderate": 38.4,
+        "erosion_severe": -154.6
+      },
+      "yield_window_kg_ha": [
+        0.0,
+        4846.2
+      ]
+    },
+    {
+      "year": 2025,
+      "season": "A",
+      "n_joined": 557,
+      "n_model": 545,
+      "n_districts": 28,
+      "yield_source": "native",
+      "mean_yield_kg_ha": 1918.8,
+      "rain": {
+        "mae_kg_ha": 995.8,
+        "rmse_kg_ha": 1223.1,
+        "r2": -0.013
+      },
+      "district": {
+        "mae_kg_ha": 1024.6,
+        "rmse_kg_ha": 1263.5,
+        "r2": -0.081
+      },
+      "forest": {
+        "mae_kg_ha": 959.3,
+        "rmse_kg_ha": 1179.1,
+        "r2": 0.058
+      },
+      "forest_beats_district": true,
+      "within_district_kg_ha": {
+        "irrigated": 0.0,
+        "organic": 267.6,
+        "organic_short": -514.7,
+        "inorganic": 431.0,
+        "protected": 44.5,
+        "erosion_moderate": -190.4,
+        "erosion_severe": -1003.3
+      },
+      "yield_window_kg_ha": [
+        146.8,
+        6260.5
+      ]
+    },
+    {
+      "year": 2025,
+      "season": "B",
+      "n_joined": 221,
+      "n_model": 215,
+      "skipped": "Fewer than 400 plots after the 1–99 yield window."
+    }
+  ],
+  "pooled": {
+    "n_plots_model": 28042,
+    "years": [
+      2022,
+      2023,
+      2025
+    ],
+    "seasons": [
+      "A",
+      "B"
+    ],
+    "yield_window_kg_ha": [
+      0.0,
+      5712.7
+    ],
+    "shuffled": {
+      "rain": {
+        "mae_kg_ha": 917.0,
+        "rmse_kg_ha": 1160.7,
+        "r2": -0.002
+      },
+      "district": {
+        "mae_kg_ha": 892.3,
+        "rmse_kg_ha": 1137.3,
+        "r2": 0.038
+      },
+      "forest": {
+        "mae_kg_ha": 859.1,
+        "rmse_kg_ha": 1094.9,
+        "r2": 0.108
+      },
+      "boost": {
+        "mae_kg_ha": 858.6,
+        "rmse_kg_ha": 1093.7,
+        "r2": 0.11
+      }
+    },
+    "grouped_by_district": {
+      "rain": {
+        "mae_kg_ha": 917.6,
+        "rmse_kg_ha": 1161.7,
+        "r2": -0.004
+      },
+      "district": {
+        "mae_kg_ha": 917.4,
+        "rmse_kg_ha": 1161.4,
+        "r2": -0.003
+      },
+      "forest": {
+        "mae_kg_ha": 882.4,
+        "rmse_kg_ha": 1129.9,
+        "r2": 0.05
+      }
+    },
+    "feature_importances": {
+      "inorganic": 0.4942,
+      "rain_diff_pct": 0.2906,
+      "vegetation_mean": 0.177,
+      "organic_short": 0.0159,
+      "organic": 0.0094,
+      "erosion_moderate": 0.0086,
+      "protected": 0.0026,
+      "irrigated": 0.0016,
+      "erosion_severe": 0.0001
+    },
+    "note": "Grouped CV holds out whole districts. If the forest loses here, plot practices are not travelling cleanly to new places."
+  },
+  "district_panel": {
+    "n_district_seasons": 300,
+    "years": [
+      2020,
+      2021,
+      2022,
+      2023,
+      2025
+    ],
+    "validation": "Leave-one-year-out at district-season level. Rain and NDRE only. No plot practices.",
+    "rain": {
+      "mae_kg_ha": 426.2,
+      "rmse_kg_ha": 531.7,
+      "r2": -0.351
+    },
+    "forest": {
+      "mae_kg_ha": 424.5,
+      "rmse_kg_ha": 530.0,
+      "r2": -0.342
+    },
+    "note": "This is a district-year panel, not a plot model. It tests whether rain and NDRE travel to a year the model did not train on."
+  }
 }

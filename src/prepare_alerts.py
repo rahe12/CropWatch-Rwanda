@@ -36,6 +36,12 @@ USUAL_YEARS = list(range(2018, 2026))
 SEASON_START = date(2026, 9, 1)
 TODAY = date(2026, 10, 30)
 ARCHIVE_END = TODAY - timedelta(days=1)
+# FAO GIEWS Season A maize window is September–October. Mid-window is an
+# assumed plant date, not a field visit. Kc from FAO-56 Table 12 (maize grain)
+# and tropical stage lengths from Table 11.
+PLANT_DATE = date(2026, 9, 15)
+LINI, LDEV, LMID, LLATE = 20, 35, 40, 30
+KC_INI, KC_MID, KC_END = 0.30, 1.20, 0.60
 
 
 def plot_yes(frame, this_col, any_col):
@@ -115,6 +121,34 @@ def centroids():
     return points
 
 
+def kc_maize(day):
+    if not isinstance(day, date):
+        day = pd.to_datetime(day).date()
+    elapsed = (day - PLANT_DATE).days
+    if elapsed < 0:
+        return 0.0, "pre_plant"
+    if elapsed < LINI:
+        return KC_INI, "initial"
+    if elapsed < LINI + LDEV:
+        share = (elapsed - LINI) / LDEV
+        return KC_INI + (KC_MID - KC_INI) * share, "development"
+    if elapsed < LINI + LDEV + LMID:
+        return KC_MID, "mid"
+    if elapsed < LINI + LDEV + LMID + LLATE:
+        share = (elapsed - LINI - LDEV - LMID) / LLATE
+        return KC_MID + (KC_END - KC_MID) * share, "late"
+    return KC_END, "late"
+
+
+def effective_rain(mm):
+    if mm is None or (isinstance(mm, float) and pd.isna(mm)):
+        return 0.0
+    rain = max(0.0, float(mm))
+    if rain <= 5:
+        return 0.6 * rain
+    return 0.8 * rain
+
+
 def http_json(url, tries=3):
     request = Request(url, headers={"User-Agent": "CropWatchRwanda/1.0"})
     last_error = None
@@ -137,7 +171,7 @@ def open_meteo(points):
             "longitude": lons,
             "start_date": SEASON_START.isoformat(),
             "end_date": ARCHIVE_END.isoformat(),
-            "daily": "precipitation_sum",
+            "daily": "precipitation_sum,et0_fao_evapotranspiration,temperature_2m_max,temperature_2m_min",
             "timezone": "Africa/Kigali",
         }
     )
@@ -145,7 +179,7 @@ def open_meteo(points):
         {
             "latitude": lats,
             "longitude": lons,
-            "daily": "precipitation_sum,precipitation_probability_max",
+            "daily": "precipitation_sum,precipitation_probability_max,et0_fao_evapotranspiration,temperature_2m_max,temperature_2m_min,wind_speed_10m_max",
             "forecast_days": 7,
             "timezone": "Africa/Kigali",
         }
@@ -161,28 +195,73 @@ def open_meteo(points):
     day_rows = []
     for index, point in points.iterrows():
         past = archive[index]["daily"]
-        rain_so_far = float(pd.Series(past["precipitation_sum"], dtype="float").sum())
+        rain_list = past.get("precipitation_sum") or []
+        et0_list = past.get("et0_fao_evapotranspiration") or [0] * len(past["time"])
+        rain_so_far = float(pd.Series(rain_list, dtype="float").sum())
+        pe_season = 0.0
+        etc_season = 0.0
+        et0_season = 0.0
+        kc_today, stage_today = kc_maize(TODAY)
+        for day, rain, et0 in zip(past["time"], rain_list, et0_list):
+            kc, _stage = kc_maize(day)
+            rain_v = 0.0 if pd.isna(rain) else float(rain)
+            et0_v = 0.0 if pd.isna(et0) else float(et0)
+            pe_season += effective_rain(rain_v)
+            etc_season += et0_v * kc
+            et0_season += et0_v
         season_rows.append(
             {
                 "district": point["district"],
                 "rain_so_far_mm": rain_so_far,
+                "et0_season_mm": round(et0_season, 1),
+                "etc_season_mm": round(etc_season, 1),
+                "pe_season_mm": round(pe_season, 1),
+                "water_balance_season_mm": round(pe_season - etc_season, 1),
+                "kc_maize": round(kc_today, 2),
+                "maize_stage": stage_today,
+                "plant_date_assumed": PLANT_DATE.isoformat(),
                 "season_start": SEASON_START.isoformat(),
                 "season_until": ARCHIVE_END.isoformat(),
                 "rain_source": "Open-Meteo archive",
+                "et0_source": "Open-Meteo FAO-56 ET0",
             }
         )
         future = forecast[index]["daily"]
-        for day, amount, chance in zip(
+        n_days = len(future["time"])
+        def col(name):
+            values = future.get(name) or [None] * n_days
+            if len(values) < n_days:
+                values = list(values) + [None] * (n_days - len(values))
+            return values
+        for day, amount, chance, et0, tmax, tmin, wind in zip(
             future["time"],
-            future["precipitation_sum"],
-            future["precipitation_probability_max"],
+            col("precipitation_sum"),
+            col("precipitation_probability_max"),
+            col("et0_fao_evapotranspiration"),
+            col("temperature_2m_max"),
+            col("temperature_2m_min"),
+            col("wind_speed_10m_max"),
         ):
+            rain_v = 0.0 if amount is None or pd.isna(amount) else float(amount)
+            et0_v = 0.0 if et0 is None or pd.isna(et0) else float(et0)
+            kc, stage = kc_maize(day)
+            pe = effective_rain(rain_v)
+            etc = et0_v * kc
             day_rows.append(
                 {
                     "district": point["district"],
                     "date": day,
-                    "forecast_mm": amount,
+                    "forecast_mm": rain_v,
                     "rain_chance_pct": chance,
+                    "et0_mm": round(et0_v, 2),
+                    "etc_mm": round(etc, 2),
+                    "pe_mm": round(pe, 2),
+                    "water_balance_mm": round(pe - etc, 2),
+                    "kc_maize": round(kc, 2),
+                    "maize_stage": stage,
+                    "temp_max_c": tmax,
+                    "temp_min_c": tmin,
+                    "wind_max_kmh": wind,
                 }
             )
     return pd.DataFrame(season_rows), pd.DataFrame(day_rows)
@@ -194,18 +273,33 @@ def classify(row):
     dry_week = row["forecast_week_mm"] < 10
     low_irrigation = row["irrigated_pct"] < 10
     soil_open = (row["concern_pct"] >= 20) and (row["protected_pct"] < 80)
+    week_deficit = row.get("water_balance_week_mm", 0) < -10
+    season_deficit = row.get("water_balance_season_mm", 0) < -30
 
     if dry and low_irrigation and dry_week:
-        return "irrigate_now", 1
-    if dry and low_irrigation:
-        return "irrigation_gap", 2
-    if wet_week and soil_open:
-        return "soil_rain", 3
-    if dry:
-        return "dry_watch", 4
-    if soil_open:
-        return "soil_watch", 5
-    return "stable", 6
+        action, priority = "irrigate_now", 1
+    elif dry and low_irrigation:
+        action, priority = "irrigation_gap", 2
+    elif wet_week and soil_open:
+        action, priority = "soil_rain", 3
+    elif dry:
+        action, priority = "dry_watch", 4
+    elif soil_open:
+        action, priority = "soil_watch", 5
+    else:
+        action, priority = "stable", 6
+
+    if dry and wet_week:
+        climate = "agronomist"
+    elif wet_week and soil_open:
+        climate = "excess_rain"
+    elif (week_deficit or season_deficit) and dry and low_irrigation:
+        climate = "water_stress"
+    elif dry or week_deficit:
+        climate = "rainfall_watch"
+    else:
+        climate = "normal_monitoring"
+    return action, priority, climate
 
 
 def main():
@@ -234,6 +328,12 @@ def main():
         forecast_week_mm=("forecast_mm", "sum"),
         forecast_max_mm=("forecast_mm", "max"),
         forecast_days_with_rain=("forecast_mm", lambda values: int((values >= 1).sum())),
+        et0_week_mm=("et0_mm", "sum"),
+        etc_week_mm=("etc_mm", "sum"),
+        pe_week_mm=("pe_mm", "sum"),
+        water_balance_week_mm=("water_balance_mm", "sum"),
+        temp_max_c=("temp_max_c", "max"),
+        temp_min_c=("temp_min_c", "min"),
     )
 
     alerts = (
@@ -246,7 +346,7 @@ def main():
     alerts["rain_difference_mm"] = alerts["rain_so_far_mm"] - alerts["usual_sep_oct_mm"]
     alerts["rain_difference_pct"] = 100 * alerts["rain_difference_mm"] / alerts["usual_sep_oct_mm"]
     ranked = alerts.apply(classify, axis=1, result_type="expand")
-    ranked.columns = ["alert", "priority"]
+    ranked.columns = ["alert", "priority", "climate_class"]
     alerts = pd.concat([alerts, ranked], axis=1)
     alerts["year"] = YEAR
     alerts["season"] = SEASON
@@ -256,7 +356,15 @@ def main():
     alerts.to_csv(APP / "irrigation_alerts.csv", index=False)
     forecast_days.to_csv(APP / "forecast_7day.csv", index=False)
     print(alerts["alert"].value_counts().to_string())
-    print(alerts[["district", "alert", "irrigated_pct", "rain_so_far_mm", "usual_sep_oct_mm", "rain_difference_pct", "forecast_week_mm"]].round(1).to_string(index=False))
+    print(alerts["climate_class"].value_counts().to_string())
+    print(
+        alerts[
+            [
+                "district", "alert", "climate_class", "irrigated_pct", "rain_so_far_mm",
+                "rain_difference_pct", "forecast_week_mm", "etc_week_mm", "water_balance_week_mm",
+            ]
+        ].round(1).to_string(index=False)
+    )
 
 
 if __name__ == "__main__":

@@ -1,9 +1,27 @@
+import importlib
 import json
 from pathlib import Path
-import pydeck as pdk
+
+import folium
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
+import src.advise as advise_mod
+import src.export_note as export_mod
+import src.sources as sources_mod
+import src.style as style_mod
+import src.words as words_mod
+
+importlib.reload(words_mod)
+importlib.reload(style_mod)
+importlib.reload(advise_mod)
+importlib.reload(sources_mod)
+importlib.reload(export_mod)
+
+from src.advise import answer, audio_speech_html, kit_for_hectares, llm_status, pack, sms_text
+from src.export_note import html_report
+from src.sources import KIND_LABEL, SOURCES
 from src.style import inject
 from src.words import TEXT
 
@@ -17,6 +35,10 @@ st.markdown(inject(), unsafe_allow_html=True)
 
 if "lang" not in st.session_state:
     st.session_state.lang = "en"
+if "lang_nav" not in st.session_state:
+    st.session_state.lang_nav = st.session_state.lang
+if "page_nav" not in st.session_state:
+    st.session_state.page_nav = "home"
 
 FAO_CROP = {
     "Corn": ("Maize", "Ibigori"),
@@ -61,10 +83,12 @@ def load():
     sim_path = APP_TABLES / "district_simulation_base.csv"
     if sim_path.exists():
         sim_base = pd.read_csv(sim_path)
+    vegetation = pd.read_csv(PROCESSED / "vegetation" / "district_year.csv")
 
     return (
         status, matches, unmatched, seasons, calendar, zones, rows, rain, watch,
-        soil, alerts, forecast, exports_year, exports_partners, benchmark, sim_base
+        soil, alerts, forecast, exports_year, exports_partners, benchmark, sim_base,
+        vegetation,
     )
 
 
@@ -105,6 +129,102 @@ def data_table(headers, rows):
     return f'<div class="data-card"><table><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
 
 
+def score_text(block, field):
+    if not isinstance(block, dict) or field not in block or block[field] is None:
+        return "—"
+    value = block[field]
+    if field == "r2":
+        return f"{value:.3f}"
+    return f"{value:.1f}"
+
+
+def model_tables(benchmark, words):
+    if not benchmark:
+        return ""
+    status_label = {
+        "skip": words["status_skip"],
+        "plot": words["status_plot"],
+        "district-panel": words["status_panel"],
+    }
+    cover_rows = [
+        [
+            f"{row['year']} {row.get('season', '')}".strip(),
+            status_label.get(row.get("status"), row.get("status", "—")),
+            row.get("reason", ""),
+        ]
+        for row in benchmark.get("coverage", [])
+    ]
+    slice_rows = []
+    for item in benchmark.get("slices", []):
+        label = f"{item.get('year')} {item.get('season')}"
+        if item.get("skipped"):
+            slice_rows.append([
+                label,
+                str(item.get("n_model") or item.get("n_joined") or "—"),
+                "—", "—", "—",
+                item["skipped"],
+            ])
+            continue
+        slice_rows.append([
+            label,
+            str(item.get("n_model", "—")),
+            score_text(item.get("rain"), "r2"),
+            score_text(item.get("district"), "r2"),
+            score_text(item.get("forest"), "r2"),
+            words["beats_yes"] if item.get("forest_beats_district") else words["beats_no"],
+        ])
+    pooled = benchmark.get("pooled") or {}
+    shuffled = pooled.get("shuffled") or {}
+    grouped = pooled.get("grouped_by_district") or {}
+    pooled_rows = []
+    for name, block in (
+        (words["pooled_rain"], shuffled.get("rain")),
+        (words["pooled_district"], shuffled.get("district")),
+        (words["pooled_forest"], shuffled.get("forest")),
+        (words["pooled_boost"], shuffled.get("boost")),
+        (words["grouped_rain"], grouped.get("rain")),
+        (words["grouped_district"], grouped.get("district")),
+        (words["grouped_forest"], grouped.get("forest")),
+    ):
+        if not block:
+            continue
+        pooled_rows.append([
+            name,
+            score_text(block, "mae_kg_ha"),
+            score_text(block, "rmse_kg_ha"),
+            score_text(block, "r2"),
+        ])
+    panel = benchmark.get("district_panel") or {}
+    panel_rows = []
+    for name, block in ((words["panel_rain"], panel.get("rain")), (words["panel_forest"], panel.get("forest"))):
+        if block:
+            panel_rows.append([
+                name,
+                score_text(block, "mae_kg_ha"),
+                score_text(block, "rmse_kg_ha"),
+                score_text(block, "r2"),
+            ])
+    html = (
+        f'<p class="kicker-green" style="margin-top:40px">{words["cover_title"]}</p>'
+        f'<p class="section-p">{words["cover_lead"]}</p>'
+        + (data_table([words["year_col"], words["cover_status"], words["cover_reason"]], cover_rows) if cover_rows else "")
+        + f'<p class="kicker-green" style="margin-top:36px">{words["slice_title"]}</p>'
+        f'<p class="section-p">{words["slice_lead"]}</p>'
+        + (data_table(
+            [words["year_col"], words["slice_n"], words["slice_rain_r2"], words["slice_district_r2"], words["slice_forest_r2"], words["slice_verdict"]],
+            slice_rows,
+        ) if slice_rows else "")
+        + f'<p class="kicker-green" style="margin-top:36px">{words["pooled_title"]}</p>'
+        f'<p class="section-p">{words["pooled_lead"]}</p>'
+        + (data_table([words["model_col"], words["mae_col"], words["rmse_col"], words["r2_col"]], pooled_rows) if pooled_rows else "")
+        + f'<p class="kicker-green" style="margin-top:36px">{words["panel_title"]}</p>'
+        f'<p class="section-p">{words["panel_lead"]}</p>'
+        + (data_table([words["model_col"], words["mae_col"], words["rmse_col"], words["r2_col"]], panel_rows) if panel_rows else "")
+        + f'<div class="note-box">{words["sim_source_note"]}</div>'
+    )
+    return html
+
+
 def bar_cell(pct):
     width = max(0, min(100, float(pct)))
     return f'<div class="bar-cell"><b>{width:.0f}%</b><i style="width:{width:.0f}%"></i></div>'
@@ -122,7 +242,14 @@ def week_panel(week, words):
             f'<div class="week-day"><em>{day}</em>'
             f'<div class="week-track"><i style="height:{height:.0f}%"></i></div>'
             f'<strong>{float(item["forecast_mm"]):.1f}</strong>'
-            f'<span>{float(item["rain_chance_pct"]):.0f}%</span></div>'
+            f'<span>{float(item["rain_chance_pct"]):.0f}%</span>'
+            + (f'<span>{float(item["et0_mm"]):.1f} ET₀</span>' if "et0_mm" in item and pd.notna(item.get("et0_mm")) else "")
+            + (
+                f'<span class="week-bal">{float(item["water_balance_mm"]):+.1f}</span>'
+                if "water_balance_mm" in item and pd.notna(item.get("water_balance_mm"))
+                else ""
+            )
+            + "</div>"
         )
     return (
         f'<div class="week-panel"><div class="week-head"><h3>{words["week_title"]}</h3>'
@@ -138,9 +265,25 @@ def board(kicker, title, body, action, kpis, extra="", pill_html=""):
         f'<p class="kicker-green">{kicker}</p><h2>{title}</h2></div>{pill_html}</div>'
         f'<p class="board-copy">{body}</p>'
         f'<p class="board-action">{action}</p>'
-        f'<div class="kpi-row{" five" if len(kpis) == 5 else ""}">{"".join(kpis)}</div>'
+        f'<div class="kpi-row{" five" if len(kpis) == 5 else " six" if len(kpis) == 6 else ""}">{"".join(kpis)}</div>'
         f"{extra}</section>"
     )
+
+
+def guide_card(title, body):
+    return f"""
+    <div class="guide-card">
+      <div class="guide-card-head">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d4f2b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <h4>{title}</h4>
+      </div>
+      <p class="guide-card-body">{body}</p>
+    </div>
+    """
 
 
 def site_footer(words):
@@ -148,35 +291,331 @@ def site_footer(words):
     <footer class="landing-footer">
       <div class="landing-footer-grid">
         <div>
-          <div class="landing-brand">CropWatch</div>
+          <div class="landing-brand">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="20" fill="#ffffff"/>
+              <path d="M12 24c4-10 8-14 11-15-2 7-2 12 1 15 4-7 7-9 9-9-4 9-8 14-14 15-5-1-7-3-7-6z" fill="#0d4f2b"/>
+            </svg>
+            <span>CropWatch Rwanda<small>{words["brand_tag"]}</small></span>
+          </div>
           <p>{words["footer_blurb"]}</p>
+          <p class="footer-tagline-text">{words["footer_tagline"]}</p>
         </div>
         <div>
-          <h2>{words["alerts"]}</h2>
-          <p>{words["soil"]}</p>
-          <p>{words["watch"]}</p>
+          <h2>{words["footer_platform"]}</h2>
+          <ul>
+            <li>{words["nav_home"]}</li>
+            <li>{words["nav_alerts"]}</li>
+            <li>{words["nav_dashboard"]}</li>
+            <li>{words["nav_soil"]}</li>
+            <li>{words["nav_advise"]}</li>
+          </ul>
         </div>
         <div>
-          <h2>{words["how"]}</h2>
-          <p>NISR · CHIRPS · Open-Meteo · Scikit-Learn</p>
+          <h2>{words["footer_resources"]}</h2>
+          <ul>
+            <li>{words["nav_about"]}</li>
+            <li>{words["nav_method"]}</li>
+            <li>{words["nav_data"]}</li>
+            <li>{words["nav_pilot"]}</li>
+            <li>{words["nav_simulator"]}</li>
+          </ul>
         </div>
         <div>
-          <h2>{words["nav_about"]}</h2>
-          <p>{words["footer_copy"]}</p>
+          <h2>{words["footer_legal"]}</h2>
+          <p>{words["footer_disclaimer"]}</p>
+          <p>{words["footer_ack"]}</p>
         </div>
       </div>
-      <div class="landing-copyright">{words["footer_copy"]}</div>
+      <div class="landing-copyright">© 2026 CropWatch Rwanda · {words["footer_copy"]}</div>
     </footer>
     """
 
 
-def page_head(title, lead, words):
+def why_box(row, words):
+    key = "why_" + str(row["alert"])
+    body = words.get(key, words["why_stable"])
+    climate = row["climate_class"] if "climate_class" in row and pd.notna(row.get("climate_class")) else ""
+    climate_html = ""
+    if climate:
+        climate_html = (
+            f'<p><strong>{words["climate_kicker"]}</strong> '
+            f'{words.get("label_" + str(climate), climate)}</p>'
+        )
+    balance = ""
+    if "water_balance_week_mm" in row and pd.notna(row.get("water_balance_week_mm")):
+        balance = words["intel_balance"].format(
+            pe=float(row.get("pe_week_mm") or 0),
+            etc=float(row.get("etc_week_mm") or 0),
+            bal=float(row["water_balance_week_mm"]),
+            kc=float(row.get("kc_maize") or 0),
+            stage=row.get("maize_stage") or "—",
+        )
+    return (
+        f'<div class="why-box"><strong>{words["why_title"]}</strong>'
+        f"{climate_html}<p>{body}</p>"
+        f"{'<p>' + balance + '</p>' if balance else ''}"
+        f"<p>{words['why_sources']}</p></div>"
+    )
+
+
+def intel_card(row, words):
+    climate = str(row.get("climate_class") or "")
+    alert = str(row["alert"])
+    if alert in {"irrigation_gap", "irrigate_now", "dry_watch"}:
+        action = words["action_irrigation"]
+    elif alert in {"soil_rain", "soil_watch"}:
+        action = words["action_soil"]
+    else:
+        action = words["action_stable"]
+    return (
+        '<div class="intel-card">'
+        f'<p class="kicker-green">{words["intel_title"]}</p>'
+        "<dl>"
+        f"<dt>{words['intel_condition']}</dt><dd>{words.get('label_' + alert, alert)}"
+        f"{' · ' + words.get('label_' + climate, climate) if climate else ''}</dd>"
+        f"<dt>{words['intel_used']}</dt><dd>{words['intel_used_body']}</dd>"
+        f"<dt>{words['intel_method']}</dt><dd>{words['intel_method_body']}</dd>"
+        f"<dt>{words['intel_reason']}</dt><dd>{words.get('why_' + alert, words['why_stable'])}</dd>"
+        f"<dt>{words['intel_action']}</dt><dd>{action}</dd>"
+        f"<dt>{words['intel_limits']}</dt><dd>{words['intel_limits_body']}</dd>"
+        "</dl></div>"
+    )
+
+
+def source_card(item, lang, words):
+    copy = item[lang]
+    kind_en, kind_rw = KIND_LABEL[item["kind"]]
+    kind = kind_rw if lang == "rw" else kind_en
+    link = ""
+    if item["url"]:
+        link = (
+            f"<dt>{words['src_link']}</dt>"
+            f"<dd><a href='{item['url']}' target='_blank' rel='noreferrer'>{words['src_open']}</a></dd>"
+        )
+    return (
+        '<article class="source-card">'
+        f'<span class="kind-pill">{kind}</span>'
+        f"<h3>{copy['name']}</h3>"
+        "<dl>"
+        f"<dt>{words['src_publisher']}</dt><dd>{copy['publisher']}</dd>"
+        f"<dt>{words['src_contains']}</dt><dd>{copy['contains']}</dd>"
+        f"<dt>{words['src_vars']}</dt><dd>{copy['vars']}</dd>"
+        f"<dt>{words['src_geo']}</dt><dd>{copy['geo']}</dd>"
+        f"<dt>{words['src_time']}</dt><dd>{copy['time']}</dd>"
+        f"<dt>{words['src_update']}</dt><dd>{copy['update']}</dd>"
+        f"{link}"
+        f"<dt>{words['src_accessed']}</dt><dd>{copy['accessed']}</dd>"
+        f"<dt>{words['src_processing']}</dt><dd>{copy['processing']}</dd>"
+        f"<dt>{words['src_modules']}</dt><dd>{copy['modules']}</dd>"
+        f"<dt>{words['src_limits']}</dt><dd>{copy['limits']}</dd>"
+        f"<dt>{words['src_license']}</dt><dd>{copy['license']}</dd>"
+        "</dl></article>"
+    )
+
+
+@st.cache_data
+def load_geojson(mtime):
+    path = APP_TABLES / "districts.geojson"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+ALERT_COLOR = {
+    "irrigate_now": "#dc2626",
+    "irrigation_gap": "#ea580c",
+    "soil_rain": "#ca8a04",
+    "dry_watch": "#d97706",
+    "soil_watch": "#ca8a04",
+    "stable": "#16a34a",
+}
+CLIMATE_COLOR = {
+    "water_stress": "#dc2626",
+    "excess_rain": "#7a4e22",
+    "rainfall_watch": "#d97706",
+    "agronomist": "#6d28d9",
+    "normal_monitoring": "#16a34a",
+}
+
+
+def layer_fill(row, layer):
+    if layer == "alert":
+        return ALERT_COLOR.get(str(row["alert"]), "#16a34a")
+    if layer == "climate":
+        return CLIMATE_COLOR.get(str(row.get("climate_class") or ""), "#16a34a")
+    if layer == "rain":
+        value = float(row["rain_difference_pct"])
+        if value <= -20:
+            return "#dc2626"
+        if value <= -10:
+            return "#ea580c"
+        if value < 10:
+            return "#ca8a04"
+        return "#16a34a"
+    if layer == "irrigation":
+        value = float(row["irrigated_pct"])
+        if value < 2:
+            return "#dc2626"
+        if value < 10:
+            return "#ea580c"
+        return "#16a34a"
+    if layer == "soil":
+        value = float(row["concern_pct"])
+        if value >= 30:
+            return "#dc2626"
+        if value >= 20:
+            return "#ea580c"
+        if value >= 10:
+            return "#ca8a04"
+        return "#16a34a"
+    value = float(row["ndre_2026"]) if "ndre_2026" in row and pd.notna(row["ndre_2026"]) else 0
+    if value < 0.25:
+        return "#b45309"
+    if value < 0.30:
+        return "#ca8a04"
+    return "#16a34a"
+
+
+def layer_legend(layer, words):
+    if layer == "alert":
+        items = [
+            ("#dc2626", words["label_irrigate_now"]),
+            ("#ea580c", words["label_irrigation_gap"]),
+            ("#ca8a04", words["label_soil_watch"]),
+            ("#16a34a", words["label_stable"]),
+        ]
+    elif layer == "climate":
+        items = [
+            ("#dc2626", words["label_water_stress"]),
+            ("#d97706", words["label_rainfall_watch"]),
+            ("#7a4e22", words["label_excess_rain"]),
+            ("#6d28d9", words["label_agronomist"]),
+            ("#16a34a", words["label_normal_monitoring"]),
+        ]
+    elif layer == "rain":
+        items = [("#dc2626", "≤ −20%"), ("#ea580c", "−20 to −10%"), ("#ca8a04", "−10 to +10%"), ("#16a34a", "> +10%")]
+    elif layer == "irrigation":
+        items = [("#dc2626", "< 2%"), ("#ea580c", "2–10%"), ("#16a34a", "≥ 10%")]
+    elif layer == "soil":
+        items = [("#16a34a", "< 10%"), ("#ca8a04", "10–20%"), ("#ea580c", "20–30%"), ("#dc2626", "≥ 30%")]
+    else:
+        items = [("#b45309", "NDRE < 0.25"), ("#ca8a04", "0.25–0.30"), ("#16a34a", "≥ 0.30")]
+    rows = "".join(f'<div class="legend-item"><i class="legend-swatch" style="background:{colour}"></i>{label}</div>' for colour, label in items)
+    return f'<div class="legend-card"><h3>{words["legend_title"]}</h3>{rows}</div>'
+
+
+def week_line(forecast, district):
+    week = forecast[forecast["district"] == district].sort_values("date")
+    if week.empty:
+        return "—"
+    parts = []
+    for _, item in week.iterrows():
+        parts.append(f"{pd.to_datetime(item['date']).strftime('%d %b')} {float(item['forecast_mm']):.1f} mm")
+    return " · ".join(parts)
+
+
+def alert_map(alerts, forecast, geojson, words, layer="alert"):
+    lookup = alerts.set_index("district")
+    features = []
+    for feat in geojson["features"]:
+        name = feat["properties"].get("district")
+        props = dict(feat["properties"])
+        if name in lookup.index:
+            row = lookup.loc[name]
+            props["alert_label"] = words["label_" + str(row["alert"])]
+            props["rain_vs"] = f"{float(row['rain_difference_pct']):.1f}"
+            props["irrig_share"] = f"{float(row['irrigated_pct']):.1f}"
+            props["week_mm"] = f"{float(row['forecast_week_mm']):.1f}"
+            props["week_detail"] = week_line(forecast, name)
+            props["fill"] = layer_fill(row, layer)
+        else:
+            props["alert_label"] = "—"
+            props["rain_vs"] = "—"
+            props["irrig_share"] = "—"
+            props["week_mm"] = "—"
+            props["week_detail"] = "—"
+            props["fill"] = "#94a3b8"
+        features.append({"type": "Feature", "geometry": feat["geometry"], "properties": props})
+    layered = {"type": "FeatureCollection", "features": features}
+
+    rwanda = folium.Map(
+        location=[-1.94, 29.87],
+        zoom_start=7,
+        tiles=None,
+        control_scale=True,
+        zoom_control=True,
+    )
+    folium.TileLayer(
+        tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attr="&copy; OpenStreetMap contributors",
+        name="OpenStreetMap",
+        overlay=False,
+        control=False,
+    ).add_to(rwanda)
+    folium.GeoJson(
+        layered,
+        style_function=lambda feature: {
+            "fillColor": feature["properties"].get("fill", "#16a34a"),
+            "color": "#ffffff",
+            "weight": 1,
+            "fillOpacity": 0.78,
+        },
+        highlight_function=lambda _feature: {
+            "weight": 2.5,
+            "fillOpacity": 0.92,
+            "color": "#080d25",
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=["district", "alert_label", "rain_vs", "irrig_share", "week_mm"],
+            aliases=[
+                words["district_col"],
+                words["col_status"],
+                words["map_rain"],
+                words["stat_irrigated"],
+                words["map_week"],
+            ],
+            sticky=False,
+            labels=True,
+        ),
+        popup=folium.GeoJsonPopup(
+            fields=["district", "alert_label", "rain_vs", "irrig_share", "week_detail"],
+            aliases=[
+                words["district_col"],
+                words["col_status"],
+                words["map_rain"],
+                words["stat_irrigated"],
+                words["week_title"],
+            ],
+            labels=True,
+            max_width=360,
+        ),
+        name="districts",
+    ).add_to(rwanda)
+    rwanda.fit_bounds([[-2.85, 28.85], [-1.05, 30.90]])
+    return rwanda.get_root().render()
+
+
+def page_head(title, lead, words, **_extra):
     st.markdown(
-        f'<section class="page-band"><div class="inner">'
-        f'<p class="kicker-green">{words["eyebrow"]}</p>'
-        f"<h1>{title}</h1><p class='lead'>{lead}</p></div></section>",
+        f"""
+        <section class="page-band">
+          <div class="inner">
+            <p class="kicker-green">{words["eyebrow"]}</p>
+            <h1>{title}</h1>
+            <p class="lead">{lead}</p>
+          </div>
+        </section>
+        """,
         unsafe_allow_html=True,
     )
+
+
+def more_bar(words):
+    c1, c2, c3 = st.columns(3)
+    c1.button(words["more_back"], width="stretch", key="more_back", on_click=jump, args=("about",))
+    c2.button(words["nav_dashboard"], width="stretch", key="more_to_desk", on_click=jump, args=("dashboard",))
+    c3.button(words["nav_alerts"], width="stretch", key="more_to_alerts", on_click=jump, args=("alerts",))
 
 
 FORM_RW = {
@@ -191,21 +630,32 @@ FORM_RW = {
 
 (
     status, matches, unmatched, seasons, calendar, zones, survey_rows, rain, watch,
-    soil, alerts, forecast, exports_year, exports_partners, benchmark, sim_base
+    soil, alerts, forecast, exports_year, exports_partners, benchmark, sim_base,
+    vegetation,
 ) = load()
+veg_now = vegetation[vegetation["year"] == 2026][["district", "vegetation_mean"]].rename(columns={"vegetation_mean": "ndre_2026"})
+if "ndre_2026" not in alerts.columns:
+    alerts = alerts.merge(veg_now, on="district", how="left")
 
 matches["safe_to_join"] = matches["safe_to_join"].astype(str).str.lower().eq("true")
 blank_rw = unmatched["survey_crop_rw"].isna() | unmatched["survey_crop_rw"].astype(str).str.strip().eq("")
 unmatched.loc[blank_rw, "survey_crop_rw"] = unmatched.loc[blank_rw, "survey_crop"]
 
-PAGES = ("alerts", "soil", "watch", "simulator", "home", "how")
+def jump(page_name, role=None):
+    st.session_state.pending_page = page_name
+    if role:
+        st.session_state.role = role
+
+
+PILOTS = ("Bugesera", "Nyagatare", "Musanze", "Nyaruguru")
+NAV_PAGES = ("home", "alerts", "dashboard", "soil", "advise", "about")
 NAV_LABEL = {
+    "home": "nav_home",
     "alerts": "nav_alerts",
+    "dashboard": "nav_dashboard",
     "soil": "nav_soil",
-    "watch": "nav_season",
-    "simulator": "nav_simulator",
-    "home": "nav_data",
-    "how": "nav_method",
+    "advise": "nav_advise",
+    "about": "nav_about",
 }
 
 words = TEXT[st.session_state.lang]
@@ -213,32 +663,21 @@ safe = matches[matches["safe_to_join"] == True].copy()
 close = matches[matches["safe_to_join"] == False].copy()
 
 st.markdown('<div id="cw-top"></div>', unsafe_allow_html=True)
-brand, nav_col, lang_col = st.columns([1.2, 5.1, 0.95], vertical_alignment="center")
-with brand:
+col_brand, col_lang = st.columns([5.6, 0.8], vertical_alignment="center")
+with col_brand:
     st.markdown(
-        """
+        f"""
         <div class="landing-brand">
           <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="20" fill="#008a28"/>
-            <path d="M12 24c4-10 8-14 11-15-2 7-2 12 1 15 4-7 7-9 9-9-4 9-8 14-14 15-5-1-7-3-7-6z" fill="#fff"/>
+            <circle cx="20" cy="20" r="20" fill="#ffffff"/>
+            <path d="M12 24c4-10 8-14 11-15-2 7-2 12 1 15 4-7 7-9 9-9-4 9-8 14-14 15-5-1-7-3-7-6z" fill="#0d4f2b"/>
           </svg>
-          CropWatch
+          <span>CropWatch Rwanda<small>{words["brand_tag"]}</small></span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-with nav_col:
-    page = st.pills(
-        "Page",
-        options=list(PAGES),
-        format_func=lambda key: words[NAV_LABEL[key]],
-        default="alerts",
-        label_visibility="collapsed",
-        key="page_nav",
-    )
-    if page is None:
-        page = "alerts"
-with lang_col:
+with col_lang:
     language = st.pills(
         "Language",
         options=["en", "rw"],
@@ -250,16 +689,49 @@ with lang_col:
     if language and language != st.session_state.lang:
         st.session_state.lang = language
         st.rerun()
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "home"
+if st.session_state.get("page_nav") not in NAV_PAGES:
+    st.session_state.page_nav = (
+        st.session_state.current_page if st.session_state.current_page in NAV_PAGES else "home"
+    )
+if "pending_page" in st.session_state:
+    dest = st.session_state.pop("pending_page")
+    st.session_state.current_page = dest
+    st.session_state.page_nav = dest if dest in NAV_PAGES else "about"
+    st.session_state.last_nav = st.session_state.page_nav
+page_nav = st.pills(
+    "Page",
+    options=list(NAV_PAGES),
+    format_func=lambda key: words[NAV_LABEL[key]],
+    default="home",
+    label_visibility="collapsed",
+    key="page_nav",
+)
+last_nav = st.session_state.get("last_nav")
+if page_nav and last_nav is not None and page_nav != last_nav:
+    st.session_state.current_page = page_nav
+st.session_state.last_nav = page_nav
+page = st.session_state.current_page
+if page is None:
+    page = "home"
+
+role = st.session_state.get("role", "all")
 
 month = words["month_names"][int(status["rain_last_month"])]
 rain_text = f"{month} {int(status['rain_last_year'])}"
 
-if page == "alerts":
-    n_gap = int(alerts["alert"].isin(["irrigation_gap", "irrigate_now"]).sum())
-    irrig_national = 100 * alerts["irrigated_yes_weight"].sum() / alerts["irrigated_weight"].sum()
-    driest = alerts.sort_values("rain_difference_pct").iloc[0]
+n_gap = int(alerts["alert"].isin(["irrigation_gap", "irrigate_now"]).sum())
+irrig_national = 100 * alerts["irrigated_yes_weight"].sum() / alerts["irrigated_weight"].sum()
+driest = alerts.sort_values("rain_difference_pct").iloc[0]
+power_sum = pd.read_csv(APP_TABLES / "nasa_power_summary.csv") if (APP_TABLES / "nasa_power_summary.csv").exists() else pd.DataFrame()
+
+if page == "home":
     preview_rows = ""
-    for _, item in alerts.head(4).iterrows():
+    preview = alerts[alerts["district"].isin(PILOTS)]
+    if preview.empty:
+        preview = alerts.head(4)
+    for _, item in preview.iterrows():
         preview_rows += (
             "<tr>"
             f"<th>{item['district']}</th>"
@@ -276,10 +748,6 @@ if page == "alerts":
               <p class="landing-eyebrow">{words["eyebrow"]}</p>
               <h1>{words["hero_title"]}</h1>
               <p class="lead">{words["hero_lead"]}</p>
-              <div class="landing-actions">
-                <span class="landing-button hero-primary">{words["hero_cta"]} →</span>
-                <span class="landing-button hero-secondary">{words["hero_cta2"]}</span>
-              </div>
             </div>
             <aside class="landing-prices">
               <header>
@@ -296,7 +764,6 @@ if page == "alerts":
                 </thead>
                 <tbody>{preview_rows}</tbody>
               </table>
-              <footer>{words["view_all"]}</footer>
             </aside>
           </div>
         </section>
@@ -309,55 +776,262 @@ if page == "alerts":
                 <div><dt>{words["stat_worst"]}</dt><dd>{driest["rain_difference_pct"]:.0f}%</dd></div>
               </dl>
             </div>
-            <div class="decision-heading">
-              <div>
-                <p class="kicker-green">{words["kicker_decisions"]}</p>
-                <h2>{words["what_today"]}</h2>
-                <p>{words["what_lead"]}</p>
-              </div>
+            <p class="kicker-green">{words["home_challenge_kicker"]}</p>
+            <h2>{words["home_challenge_title"]}</h2>
+            <p class="section-p">{words["home_challenge_lead"]}</p>
+            <p class="kicker-green" style="margin-top:48px">{words["home_how_kicker"]}</p>
+            <h2>{words["home_how_title"]}</h2>
+            <div class="process-row three">
+              <article><span>01</span><h3>{words["home_how_1_t"]}</h3><p>{words["home_how_1"]}</p></article>
+              <article><span>02</span><h3>{words["home_how_2_t"]}</h3><p>{words["home_how_2"]}</p></article>
+              <article><span>03</span><h3>{words["home_how_3_t"]}</h3><p>{words["home_how_3"]}</p></article>
             </div>
+            <p class="kicker-green" style="margin-top:48px">{words["home_mod_kicker"]}</p>
+            <h2>{words["home_mod_title"]}</h2>
             <div class="decision-grid">
-              <article><span class="decision-number">01</span><h3>{words["card_fresh"]}</h3><p>{words["card_fresh_body"]}</p></article>
-              <article><span class="decision-number">02</span><h3>{words["card_rule"]}</h3><p>{words["card_rule_body"]}</p></article>
-              <article><span class="decision-number">03</span><h3>{words["card_action"]}</h3><p>{words["card_action_body"]}</p></article>
-            </div>
-            <div class="logic-box">
-              <strong>{words["logic_title"]}</strong>
-              <ol>
-                <li>{words["logic_1"]}</li>
-                <li>{words["logic_2"]}</li>
-                <li>{words["logic_3"]}</li>
-                <li>{words["logic_4"]}</li>
-              </ol>
+              <article><h3>{words["role_farmer"]}</h3><p>{words["home_who_farmer"]}</p></article>
+              <article><h3>{words["role_agronomist"]}</h3><p>{words["home_who_agro"]}</p></article>
+              <article><h3>{words["role_policy"]}</h3><p>{words["home_who_plan"]}</p></article>
             </div>
           </div>
         </section>
-        <section class="landing-section">
+        <section class="cta-band">
           <div class="landing-shell">
-            <p class="kicker-green">04 / {words["alerts"]}</p>
-            <h2>{words["alerts_title"]}</h2>
-            <p class="section-p">{words["alerts_lead"]}</p>
+            <p class="kicker-gold">{words["home_start_kicker"]}</p>
+            <h2>{words["home_start_title"]}</h2>
+            <p class="section-p" style="color:#d6e3dc">{words["home_start_body"]}</p>
           </div>
         </section>
         """,
         unsafe_allow_html=True,
     )
+    go1, go2, go3 = st.columns(3)
+    go1.button(words["home_go_alerts"], width="stretch", type="primary", key="home_go_alerts", on_click=jump, args=("alerts",))
+    go2.button(words["home_go_dash"], width="stretch", key="home_go_dash", on_click=jump, args=("dashboard",))
+    go3.button(words["home_go_advise"], width="stretch", key="home_go_advise", on_click=jump, args=("advise",))
+    st.markdown(site_footer(words), unsafe_allow_html=True)
 
-    shown = st.pills(
-        words["filter"],
-        ["irrigation", "soil", "stable", "all"],
-        format_func=lambda key: {
-            "all": words["filter_all"],
-            "irrigation": words["filter_irrigation"],
-            "soil": words["filter_soil"],
-            "stable": words["filter_stable"],
-        }[key],
-        default="irrigation",
-        label_visibility="collapsed",
-        key="alert_filter",
+elif page == "pilot":
+    page_head(
+        words["pilot_title"],
+        words["pilot_lead"],
+        words,
+        kicker=words.get("kicker_pilot"),
+        sources=words.get("banner_sources_pilot"),
+        action=words.get("banner_action_pilot"),
+        tags=["NASA POWER Telemetry", "FAO-56 Penman-Monteith", "4 Pilot Districts"],
     )
-    if shown is None:
-        shown = "irrigation"
+    more_bar(words)
+    pilots = alerts[alerts["district"].isin(PILOTS)].copy()
+    if not power_sum.empty:
+        pilots = pilots.merge(power_sum, on="district", how="left", suffixes=("", "_power"))
+    table_rows = []
+    for _, item in pilots.iterrows():
+        table_rows.append(
+            (
+                item["district"],
+                pill(item["alert"], words),
+                pill(item["climate_class"], words) if "climate_class" in item.index and pd.notna(item.get("climate_class")) else "—",
+                f"{item['rain_difference_pct']:.0f}%",
+                f"{item['irrigated_pct']:.1f}%",
+                f"{float(item['water_balance_week_mm']):+.0f}" if pd.notna(item.get("water_balance_week_mm")) else "—",
+                f"{float(item['temp_mean_c']):.1f}" if "temp_mean_c" in item.index and pd.notna(item.get("temp_mean_c")) else "—",
+                f"{float(item['solar_mean_mj_m2']):.1f}" if "solar_mean_mj_m2" in item.index and pd.notna(item.get("solar_mean_mj_m2")) else "—",
+            )
+        )
+    st.markdown(
+        '<div class="inner-wrap">'
+        f'<p class="section-p">{words["pilot_body"]}</p>'
+        + data_table(
+            [
+                words["district_col"], words["col_status"], words["climate_kicker"],
+                words["diff_col"], words["stat_irrigated"], words["stat_water"],
+                words["power_temp"], words["power_solar"],
+            ],
+            table_rows,
+        )
+        + f'<div class="note-box">{words["pilot_limits"]}</div>'
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    for _, item in pilots.iterrows():
+        week = forecast[forecast["district"] == item["district"]].sort_values("date")
+        st.markdown(
+            '<div class="inner-wrap" style="padding-top:0">'
+            + board(
+                words.get("label_" + str(item["alert"]), item["alert"]),
+                item["district"],
+                alert_sentence(item, words),
+                words["action_irrigation"] if item["alert"] in {"irrigation_gap", "irrigate_now", "dry_watch"} else (
+                    words["action_soil"] if item["alert"] in {"soil_rain", "soil_watch"} else words["action_stable"]
+                ),
+                [
+                    kpi(words["rain_now"], f"{item['rain_so_far_mm']:.0f}"),
+                    kpi(words["stat_irrigated"], f"{item['irrigated_pct']:.1f}%"),
+                    kpi(words["stat_water"], f"{float(item['water_balance_week_mm']):+.0f}" if pd.notna(item.get("water_balance_week_mm")) else "—"),
+                    kpi(words["stat_etc"], f"{float(item['etc_week_mm']):.0f}" if pd.notna(item.get("etc_week_mm")) else "—"),
+                    kpi(words["power_temp"], f"{float(item['temp_mean_c']):.1f}°C" if "temp_mean_c" in item.index and pd.notna(item.get("temp_mean_c")) else "—"),
+                    kpi(words["power_solar"], f"{float(item['solar_mean_mj_m2']):.1f}" if "solar_mean_mj_m2" in item.index and pd.notna(item.get("solar_mean_mj_m2")) else "—"),
+                ],
+                extra=why_box(item, words) + week_panel(week, words),
+                pill_html=pill(item["alert"], words)
+                + (" " + pill(item["climate_class"], words) if "climate_class" in item.index and pd.notna(item.get("climate_class")) else ""),
+            )
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown(site_footer(words), unsafe_allow_html=True)
+
+elif page == "dashboard":
+    page_head(
+        words["dash_title"],
+        words["dash_lead"],
+        words,
+        kicker=words.get("kicker_dashboard"),
+        sources=words.get("banner_sources_dashboard"),
+        action=words.get("banner_action_dashboard"),
+        tags=["NISR SAS 2018-2026", words["districts"] + ": 30", "WFP VAM Prices"],
+    )
+    counts = alerts["alert"].value_counts()
+    count_rows = [(words.get("label_" + name, name), int(value)) for name, value in counts.items()]
+    climate_block = ""
+    if "climate_class" in alerts.columns:
+        climate_rows = [
+            (words.get("label_" + name, name), int(value))
+            for name, value in alerts["climate_class"].value_counts().items()
+        ]
+        climate_block = (
+            f'<p class="kicker-green" style="margin-top:28px">{words["climate_kicker"]}</p>'
+            f'<p class="section-p">{words["climate_lead"]}</p>'
+            + data_table([words["col_status"], words["districts"]], climate_rows)
+        )
+    water_kpi = ""
+    if "water_balance_week_mm" in driest.index and pd.notna(driest.get("water_balance_week_mm")):
+        water_kpi = kpi(words["stat_water"], f"{float(driest['water_balance_week_mm']):+.0f}")
+    st.markdown(
+        '<div class="inner-wrap">'
+        + f'<div class="kpi-row">'
+        + kpi(words["stat_alert_districts"], str(n_gap))
+        + kpi(words["stat_irrigated"], f"{irrig_national:.1f}%")
+        + kpi(words["stat_worst"], f"{driest['rain_difference_pct']:.0f}%")
+        + water_kpi
+        + "</div>"
+        + f'<p class="kicker-green" style="margin-top:36px">{words["dash_fresh_title"]}</p>'
+        + '<div class="fresh-list">'
+        + f'<article><span>{words["price_until"]}</span><strong>{status["price_last_date"]}</strong></article>'
+        + f'<article><span>{words["rain_until"]}</span><strong>{rain_text}</strong></article>'
+        + f'<article><span>{words["trade_until"]}</span><strong>{int(status["trade_last_year"])}</strong></article>'
+        + "</div>"
+        + f'<div class="note-box">{words["dash_status_ok"]}. {words["dash_status_api"]}. {words["pilot_note"]}</div>'
+        + f'<p class="kicker-green">{words["dash_risk_title"]}</p>'
+        + data_table([words["col_status"], words["districts"]], count_rows)
+        + climate_block
+        + f'<p class="section-p">{words["export_note"]}</p>'
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    st.download_button(
+        words["export_csv"],
+        alerts.to_csv(index=False).encode("utf-8"),
+        "cropwatch_irrigation_alerts.csv",
+        "text/csv",
+        key="dash_csv",
+    )
+    district_names = sorted(alerts["district"].unique())
+    chosen_d = st.selectbox(
+        words["dash_profile_title"],
+        district_names,
+        index=district_names.index("Nyaruguru") if "Nyaruguru" in district_names else 0,
+        key="dash_district",
+    )
+    drow = alerts[alerts["district"] == chosen_d].iloc[0]
+    dweek = forecast[forecast["district"] == chosen_d].sort_values("date")
+    st.markdown(
+        '<div class="inner-wrap" style="padding-top:8px">'
+        + f'<p class="section-p">{words["dash_profile_lead"]}</p>'
+        + board(
+            words["label_" + str(drow["alert"])],
+            chosen_d,
+            alert_sentence(drow, words),
+            words["action_irrigation"] if drow["alert"] in {"irrigation_gap", "irrigate_now", "dry_watch"} else (
+                words["action_soil"] if drow["alert"] in {"soil_rain", "soil_watch"} else words["action_stable"]
+            ),
+            [
+                kpi(words["rain_now"], f"{drow['rain_so_far_mm']:.0f}"),
+                kpi(words["stat_irrigated"], f"{drow['irrigated_pct']:.1f}%"),
+                kpi(words["concern_metric"], f"{drow['concern_pct']:.0f}"),
+                kpi(words["yield_usual"], f"{drow['usual_yield_kg_ha']:.0f}"),
+                kpi(words["stat_water"], f"{float(drow['water_balance_week_mm']):+.0f}") if "water_balance_week_mm" in drow.index and pd.notna(drow.get("water_balance_week_mm")) else kpi(words["stat_water"], "—"),
+                kpi(words["stat_etc"], f"{float(drow['etc_week_mm']):.0f}") if "etc_week_mm" in drow.index and pd.notna(drow.get("etc_week_mm")) else kpi(words["stat_etc"], "—"),
+            ],
+            extra=why_box(drow, words) + week_panel(dweek, words),
+            pill_html=pill(drow["alert"], words) + (" " + pill(drow["climate_class"], words) if "climate_class" in drow.index and pd.notna(drow.get("climate_class")) else ""),
+        )
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    st.download_button(
+        words["export_html"],
+        html_report(drow, words, dweek).encode("utf-8"),
+        f"cropwatch_{chosen_d.lower()}_note.html",
+        "text/html",
+        key="dash_html",
+    )
+    d1, d2, d3 = st.columns(3)
+    d1.button(words["nav_alerts"], width="stretch", key="dash_to_alerts", on_click=jump, args=("alerts",))
+    d2.button(words["nav_advise"], width="stretch", key="dash_to_advise", on_click=jump, args=("advise",))
+    d3.button(words["nav_simulator"], width="stretch", key="dash_to_sim", on_click=jump, args=("simulator",))
+    st.markdown(site_footer(words), unsafe_allow_html=True)
+
+elif page == "alerts":
+    page_head(
+        words["alerts_title"],
+        words["alerts_lead"],
+        words,
+        kicker=words.get("kicker_alerts"),
+        sources=words.get("banner_sources_alerts"),
+        action=words.get("banner_action_alerts"),
+        tags=[words["districts"] + ": 30", "Meteo Rwanda", "CHIRPS Climatology", "7-Day Forecast"],
+    )
+    st.markdown(
+        f'<div class="inner-wrap" style="padding-bottom:8px;">'
+        f'<p class="section-p">{words["alerts_explain"]}</p>'
+        f'<p class="kicker-green">{words["map_title"]}</p>'
+        f'<p class="section-p">{words["layer_lead"]}</p></div>',
+        unsafe_allow_html=True,
+    )
+    layer_col, map_col, legend_col = st.columns([1.05, 2.4, 0.9], vertical_alignment="top")
+    with layer_col:
+        st.markdown(f'<div class="viewer-panel"><h3>{words["layer_title"]}</h3></div>', unsafe_allow_html=True)
+        layer = st.radio(
+            words["layer_title"],
+            ["alert", "climate", "rain", "irrigation", "soil", "vegetation"],
+            format_func=lambda key: {
+                "alert": words["layer_alert"],
+                "climate": words["layer_climate"],
+                "rain": words["layer_rain"],
+                "irrigation": words["layer_irrig"],
+                "soil": words["layer_soil"],
+                "vegetation": words["layer_veg"],
+            }[key],
+            index=0 if role != "agronomist" else 1,
+            key="map_layer",
+        )
+        shown = st.pills(
+            words["filter"],
+            ["irrigation", "soil", "stable", "all"],
+            format_func=lambda key: {
+                "all": words["filter_all"],
+                "irrigation": words["filter_irrigation"],
+                "soil": words["filter_soil"],
+                "stable": words["filter_stable"],
+            }[key],
+            default="irrigation" if role != "agronomist" else "all",
+            key="alert_filter",
+        )
+        if shown is None:
+            shown = "all" if role == "agronomist" else "irrigation"
+        dry_cut = st.slider(words["filter_rain"], min_value=-40, max_value=10, value=-10 if role == "agronomist" else 10, step=5, key="dry_cut")
     view = alerts.copy()
     if shown == "irrigation":
         view = view[view["alert"].isin(["irrigation_gap", "irrigate_now", "dry_watch"])]
@@ -365,6 +1039,19 @@ if page == "alerts":
         view = view[view["alert"].isin(["soil_rain", "soil_watch"])]
     elif shown == "stable":
         view = view[view["alert"] == "stable"]
+    view = view[view["rain_difference_pct"] <= dry_cut]
+    if view.empty:
+        st.markdown(f'<div class="inner-wrap"><div class="note-box">{words["empty_district"]}</div></div>', unsafe_allow_html=True)
+    geo_path = APP_TABLES / "districts.geojson"
+    geojson = load_geojson(geo_path.stat().st_mtime if geo_path.exists() else 0)
+    district_names = list(alerts["district"])
+    with map_col:
+        if geojson is not None:
+            components.html(alert_map(view if not view.empty else alerts, forecast, geojson, words, layer=layer), height=520, scrolling=False)
+        else:
+            st.markdown(f'<div class="note-box">{words["map_missing"]}</div>', unsafe_allow_html=True)
+    with legend_col:
+        st.markdown(layer_legend(layer, words), unsafe_allow_html=True)
     table_rows = [
         (
             item["district"],
@@ -378,52 +1065,12 @@ if page == "alerts":
         '<div class="inner-wrap">'
         + data_table(
             [words["district_col"], words["diff_col"], words["col_status"], words["stat_irrigated"]],
-            table_rows,
+            table_rows if table_rows else [("—", "—", "—", "—")],
         )
         + "</div>",
         unsafe_allow_html=True,
     )
 
-    # Interactive Pydeck Alert Map
-    color_map = {
-        "irrigate_now": [220, 38, 38, 210],
-        "irrigation_gap": [234, 88, 12, 210],
-        "soil_rain": [202, 138, 4, 210],
-        "dry_watch": [217, 119, 6, 190],
-        "soil_watch": [180, 83, 9, 190],
-        "stable": [22, 163, 74, 210],
-    }
-    map_df = alerts.copy()
-    map_df["color"] = map_df["alert"].map(color_map)
-    map_df["alert_label"] = map_df["alert"].apply(lambda a: words.get("label_" + str(a), a))
-    layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=map_df,
-        get_position=["longitude", "latitude"],
-        get_color="color",
-        get_radius=8500,
-        pickable=True,
-    )
-    view_state = pdk.ViewState(latitude=-1.94, longitude=29.87, zoom=7.6, pitch=0)
-    tooltip = {
-        "html": "<b>{district}</b><br/>"
-                "Status: <b>{alert_label}</b><br/>"
-                "Rain vs Usual: <b>{rain_difference_pct:.0f}%</b><br/>"
-                "Plots Irrigated: <b>{irrigated_pct:.1f}%</b><br/>"
-                "7-Day Forecast: <b>{forecast_week_mm:.0f} mm</b>",
-        "style": {"backgroundColor": "#080d25", "color": "#ffffff", "fontSize": "13px", "padding": "10px", "borderRadius": "8px"}
-    }
-    st.markdown(
-        f'<div class="inner-wrap" style="margin-top:24px;">'
-        f'<p class="kicker-green">{words["map_title"]}</p>'
-        f'<p class="section-p">{words["map_lead"]}</p>'
-        f'<div style="font-size:12px; color:var(--lp-muted); margin-bottom:12px;">{words["map_legend"]}</div>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip), height=380)
-
-    district_names = list(alerts["district"])
     chosen = st.selectbox(
         words["pick_district"],
         district_names,
@@ -450,17 +1097,67 @@ if page == "alerts":
                 kpi(words["usual_col"], f"{row['usual_sep_oct_mm']:.0f}"),
                 kpi(words["stat_irrigated"], f"{row['irrigated_pct']:.1f}%"),
                 kpi(words["yield_usual"], f"{row['usual_yield_kg_ha']:.0f}"),
+                kpi(words["stat_water"], f"{float(row['water_balance_week_mm']):+.0f}") if "water_balance_week_mm" in row.index and pd.notna(row.get("water_balance_week_mm")) else kpi(words["stat_water"], "—"),
+                kpi(words["stat_etc"], f"{float(row['etc_week_mm']):.0f}") if "etc_week_mm" in row.index and pd.notna(row.get("etc_week_mm")) else kpi(words["stat_etc"], "—"),
             ],
-            extra=week_panel(week, words),
-            pill_html=pill(row["alert"], words),
+            extra=why_box(row, words) + week_panel(week, words),
+            pill_html=pill(row["alert"], words) + (" " + pill(row["climate_class"], words) if "climate_class" in row.index and pd.notna(row.get("climate_class")) else ""),
         )
         + "</div>",
         unsafe_allow_html=True,
     )
+    st.download_button(
+        words["export_html"],
+        html_report(row, words, week).encode("utf-8"),
+        f"cropwatch_{chosen.lower()}_note.html",
+        "text/html",
+        key="alert_html",
+    )
+    profile = pack(alerts, forecast, watch, soil, vegetation, chosen)
+    if "ussd_step" not in st.session_state:
+        st.session_state.ussd_step = "home"
+    screen = {
+        "home": words["ussd_home"],
+        "weather": words["ussd_weather"].format(district=chosen, pct=profile["rain_pct"], week=profile["week_mm"], irrig=profile["irrigated_pct"]),
+        "soil": words["ussd_soil"].format(district=chosen, concern=profile["concern_pct"], protected=profile["protected_pct"]),
+        "kit": words["ussd_kit"],
+    }[st.session_state.ussd_step]
+    st.markdown(
+        f'<div class="inner-wrap"><p class="kicker-green">{words["sms_title"]}</p>'
+        f'<p class="section-p">{words["sms_note"]}</p><div class="phone-wrap">'
+        f'<div class="feature-phone"><div class="phone-bar">SMS · MTN</div>'
+        f'<div class="phone-screen">{sms_text(profile, words)}</div></div>'
+        f'<div><p class="kicker-green">{words["ussd_title"]}</p>'
+        f'<div class="feature-phone"><div class="phone-bar">*801#</div>'
+        f'<div class="phone-screen">{screen}</div></div></div></div></div>',
+        unsafe_allow_html=True,
+    )
+    u1, u2, u3, u0 = st.columns(4)
+    if u1.button(words["ussd_1"], key="ussd_w"):
+        st.session_state.ussd_step = "weather"
+        st.rerun()
+    if u2.button(words["ussd_2"], key="ussd_s"):
+        st.session_state.ussd_step = "soil"
+        st.rerun()
+    if u3.button(words["ussd_3"], key="ussd_k"):
+        st.session_state.ussd_step = "kit"
+        st.rerun()
+    if u0.button(words["ussd_0"], key="ussd_h"):
+        st.session_state.ussd_step = "home"
+        st.rerun()
     st.markdown(site_footer(words), unsafe_allow_html=True)
 
 elif page == "soil":
-    page_head(words["nav_soil"], words["soil_lead"], words)
+    page_head(
+        words["nav_soil"],
+        words["soil_lead"],
+        words,
+        kicker=words.get("kicker_soil"),
+        sources=words.get("banner_sources_soil"),
+        action=words.get("banner_action_soil"),
+        tags=["Rwanda Water Portal", "NISR SAS Slopes", "NST2 Terracing Target"],
+    )
+    st.markdown(f'<div class="inner-wrap" style="padding-bottom:0"><p class="section-p">{words["soil_explain"]}</p></div>', unsafe_allow_html=True)
     view = soil.copy()
     view["concern"] = 100 * view["concern_yes_weight"] / view["concern_weight"]
     view["severe"] = 100 * view["severe_yes_weight"] / view["severe_weight"]
@@ -537,13 +1234,26 @@ elif page == "soil":
             ],
             ranked_rows,
         )
-        + "</div>"
-        + site_footer(words),
+        + "</div>",
         unsafe_allow_html=True,
     )
+    st.download_button(
+        words["export_csv"],
+        view[["district", "concern", "severe", "protected", "organic", "inorganic", "short", "rain_difference_pct"]].to_csv(index=False).encode("utf-8"),
+        "cropwatch_soil_season_a_2022.csv",
+        "text/csv",
+        key="soil_csv",
+    )
+    st.markdown(site_footer(words), unsafe_allow_html=True)
 
 elif page == "watch":
-    page_head(words["watch"], words["watch_lead"], words)
+    page_head(
+        words["watch_title"],
+        words["watch_lead"],
+        words,
+    )
+    more_bar(words)
+    st.markdown(f'<div class="inner-wrap" style="padding-bottom:0"><p class="section-p">{words["watch_explain"]}</p></div>', unsafe_allow_html=True)
     district_names = sorted(watch["district"].unique())
     left, right = st.columns([1.1, 2])
     with left:
@@ -606,70 +1316,251 @@ elif page == "watch":
         + data_table([words["year_col"], "USD", words["note_col"]], export_year_rows)
         + f'<p class="kicker-green">{words["export_partners"]}</p>'
         + data_table([words["note_col"], "USD", words["year_col"]], export_partner_rows)
-        + "</div>"
-        + site_footer(words),
+        + f'<p class="kicker-green">{words["ndre_title"]}</p><p class="section-p">{words["ndre_lead"]}</p>'
+        + "</div>",
         unsafe_allow_html=True,
     )
+    veg_d = vegetation[vegetation["district"] == chosen].sort_values("year")
+    nat = vegetation.groupby("year")["vegetation_mean"].mean()
+    ndre_chart = pd.DataFrame({
+        words["ndre_district"]: veg_d.set_index("year")["vegetation_mean"],
+        words["ndre_national"]: nat,
+    })
+    st.line_chart(ndre_chart, height=280)
+    st.markdown(site_footer(words), unsafe_allow_html=True)
 
 elif page == "simulator":
-    page_head(words["sim_title"], words["sim_lead"], words)
+    page_head(
+        words["sim_title"],
+        words["sim_lead"],
+        words,
+        kicker=words.get("kicker_simulator"),
+        sources=words.get("banner_sources_simulator"),
+        action=words.get("banner_action_simulator"),
+        tags=["28,000+ Plot Microdata", "Ridge & Random Forest", "MINAGRI 50% SSIT Subsidy"],
+    )
+    more_bar(words)
+    tab_yield, tab_ssit = st.tabs([words["nav_simulator"], words["ssit_title"]])
     district_names = sorted(sim_base["district"].unique()) if not sim_base.empty else sorted(alerts["district"].unique())
-    chosen_sim = st.selectbox(
-        words["pick_district"],
-        district_names,
-        index=district_names.index("Bugesera") if "Bugesera" in district_names else 0,
-        key="sim_district_select",
-    )
-    sim_row = sim_base[sim_base["district"] == chosen_sim].iloc[0] if not sim_base.empty else alerts[alerts["district"] == chosen_sim].iloc[0]
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        d_irrig = st.slider(words["sim_irrig_slider"], 0, 30, 15, 5, key="d_irrig")
-    with c2:
-        d_organic = st.slider(words["sim_organic_slider"], 0, 40, 20, 5, key="d_organic")
-    with c3:
-        d_protect = st.slider(words["sim_protect_slider"], 0, 30, 10, 5, key="d_protect")
-
-    base_y = float(sim_row["usual_yield_kg_ha"])
-    pct_uplift = (0.30 * (d_irrig / 100.0) + 0.20 * (d_organic / 100.0) + 0.15 * (d_protect / 100.0)) * 100.0
-    proj_y = base_y * (1.0 + pct_uplift / 100.0)
-    gain_kg = proj_y - base_y
-
-    sim_body = (
-        f"Simulating policy interventions for {chosen_sim}: expanding small-scale irrigation by +{d_irrig}%, "
-        f"closing the organic fertilizer shortage by +{d_organic}%, and improving anti-erosion protection by +{d_protect}%."
-        if st.session_state.lang == "en"
-        else f"Igereranya ry'ishoramari muri {chosen_sim}: kongera kuhira ku buso buciriritse ho +{d_irrig}%, "
-        f"gukemura ibura ry'imborera ho +{d_organic}%, no gushimangira amaterasi n'imiringoti yo kurwanya isuri ho +{d_protect}%."
-    )
-
-    st.markdown(
-        '<div class="inner-wrap">'
-        + board(
-            "What-If Policy Simulation",
-            f"{chosen_sim} · Maize Yield Optimization",
-            sim_body,
-            words["sim_policy_note"],
-            [
-                kpi(words["sim_base_yield"], f"{base_y:.0f}"),
-                kpi(words["sim_projected_yield"], f"{proj_y:.0f}"),
-                kpi(words["sim_gain"], f"+{gain_kg:.0f} kg/ha", hint=f"+{pct_uplift:.1f}%"),
-                kpi(words["stat_irrigated"], f"{sim_row['irrigated_pct']:.1f}%", hint=f"Simulated: {min(100, sim_row['irrigated_pct'] + d_irrig):.1f}%"),
-            ],
+    with tab_yield:
+        chosen_sim = st.selectbox(
+            words["pick_district"],
+            district_names,
+            index=district_names.index("Bugesera") if "Bugesera" in district_names else 0,
+            key="sim_district_select",
         )
-        + "</div>"
-        + site_footer(words),
+        sim_row = sim_base[sim_base["district"] == chosen_sim].iloc[0] if not sim_base.empty else alerts[alerts["district"] == chosen_sim].iloc[0]
+        effects = (benchmark or {}).get("within_district_kg_ha", {})
+        irrig_gap = float(effects.get("irrigated", 0))
+        short_gap = abs(float(effects.get("organic_short", 0)))
+        left, right = st.columns(2)
+        with left:
+            d_irrig = st.slider(words["sim_irrig_slider"], 0, 30, 10, 5, help=words["sim_irrig_help"], key="d_irrig")
+        with right:
+            d_short = st.slider(words["sim_organic_slider"], 0, 50, 20, 10, help=words["sim_organic_help"], key="d_short")
+        current_irrig = float(sim_row["irrigated_pct"])
+        current_short = float(sim_row["organic_short_pct"]) if "organic_short_pct" in sim_row and pd.notna(sim_row["organic_short_pct"]) else 0.0
+        new_irrig = min(100.0, current_irrig + d_irrig)
+        new_short = max(0.0, current_short - d_short)
+        gain_kg = ((new_irrig - current_irrig) / 100.0) * irrig_gap + ((current_short - new_short) / 100.0) * short_gap
+        base_y = float(sim_row["usual_yield_kg_ha"])
+        proj_y = base_y + gain_kg
+        gain_pct = (100.0 * gain_kg / base_y) if base_y else 0.0
+        sim_body = words["sim_body"].format(
+            district=chosen_sim, irrig_gap=irrig_gap, short_gap=short_gap,
+            d_irrig=new_irrig - current_irrig, d_short=current_short - new_short, gain=gain_kg, pct=gain_pct,
+        )
+        st.markdown(
+            '<div class="inner-wrap">'
+            + f'<div class="note-box">{words["sim_assump"]}</div>'
+            + board(
+                words["nav_simulator"], chosen_sim, sim_body,
+                words["sim_policy_note"] + " " + words["sim_protect_note"],
+                [
+                    kpi(words["sim_base_yield"], f"{base_y:.0f}"),
+                    kpi(words["sim_projected_yield"], f"{proj_y:.0f}"),
+                    kpi(words["sim_gain"], f"{gain_kg:+.0f}"),
+                    kpi(words["sim_gain_pct"], f"{gain_pct:+.1f}%"),
+                    kpi(words["stat_irrigated"], f"{current_irrig:.1f}% → {new_irrig:.1f}%"),
+                    kpi(words["sim_short_now"], f"{current_short:.1f}% → {new_short:.1f}%"),
+                ],
+            )
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    with tab_ssit:
+        chosen_kit = st.selectbox(words["pick_district"], district_names, index=district_names.index("Bugesera") if "Bugesera" in district_names else 0, key="ssit_district")
+        kit_row = alerts[alerts["district"] == chosen_kit].iloc[0]
+        watch_hit = watch[(watch["district"] == chosen_kit) & (watch["season"] == "A")]
+        watch_hit = watch_hit.iloc[0] if not watch_hit.empty else None
+        hectares = st.slider(words["ssit_ha"], 0.2, 5.0, 0.5, 0.1, key="ssit_ha")
+        src_col, crop_col = st.columns(2)
+        with src_col:
+            st.selectbox(words["ssit_source"], [words["ssit_src_marsh"], words["ssit_src_well"], words["ssit_src_tank"]], key="ssit_src")
+        with crop_col:
+            crop_choice = st.selectbox(
+                words["ssit_crop"],
+                ["maize", "veg", "bean", "potato"],
+                format_func=lambda key: words["ssit_crop_" + key],
+                key="ssit_crop",
+            )
+        _key, en_name, rw_name = kit_for_hectares(hectares)
+        kit_name = rw_name if st.session_state.lang == "rw" else en_name
+        irrig_gap = float((benchmark or {}).get("within_district_kg_ha", {}).get("irrigated", 365.3))
+        protected_kg = irrig_gap * hectares
+        price = None
+        price_date = None
+        if watch_hit is not None and pd.notna(watch_hit.get("maize_price_rwf_per_kg")):
+            price = float(watch_hit["maize_price_rwf_per_kg"])
+            price_date = str(watch_hit["price_date"])
+        elif watch_hit is not None:
+            price = float(watch_hit["national_maize_price_rwf_per_kg"]) if pd.notna(watch_hit.get("national_maize_price_rwf_per_kg")) else None
+            price_date = str(watch_hit.get("national_price_date") or "")
+        value_rwf = protected_kg * price if price else None
+        extra_note = words["ssit_badge"]
+        if crop_choice != "maize":
+            extra_note += " " + words["ssit_other_crop"]
+        if watch_hit is not None and pd.isna(watch_hit.get("maize_price_rwf_per_kg")):
+            extra_note += " " + words["ssit_no_price"].format(date=price_date or "—")
+        kpis = [
+            kpi(words["ssit_kit"], kit_name),
+            kpi(words["stat_irrigated"], f"{float(kit_row['irrigated_pct']):.1f}%"),
+            kpi(words["ssit_protect"], f"{protected_kg:.0f}" if crop_choice == "maize" else "—"),
+            kpi(words["ssit_value"], f"{value_rwf:,.0f}" if value_rwf is not None and crop_choice == "maize" else "—"),
+        ]
+        st.markdown(
+            '<div class="inner-wrap">'
+            + f'<div class="policy-badge">{words["ssit_badge"]}</div>'
+            + board(words["ssit_title"], chosen_kit, words["ssit_lead"], extra_note, kpis)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown(site_footer(words), unsafe_allow_html=True)
+
+elif page == "advise":
+    page_head(
+        words["chat_title"],
+        words["chat_lead"],
+        words,
+        kicker=words.get("kicker_advise"),
+        sources=words.get("banner_sources_advise"),
+        action=words.get("banner_action_advise"),
+        tags=["Bilingual EN/RW", "Agroecological Intelligence", "160-Char SMS/USSD", "Voice Synthesis"],
+    )
+    district_names = sorted(alerts["district"].unique())
+    default_d = "Nyaruguru" if role == "farmer" else ("Bugesera" if role == "policy" else "Nyagatare")
+    if default_d not in district_names:
+        default_d = district_names[0]
+    
+    col_d, col_status_ai = st.columns([1.5, 2.5], vertical_alignment="center")
+    with col_d:
+        chosen_chat = st.selectbox(
+            words["pick_district"],
+            district_names,
+            index=district_names.index(default_d),
+            key="chat_district",
+        )
+    with col_status_ai:
+        engine = llm_status()
+        status_msg = words.get("chat_engine_llm", "⚡ Cloud LLM Connected") if engine else words.get("chat_engine_fast", "⚡ Fast Local Agronomic Engine Active")
+        st.markdown(
+            f'<div style="background:#eaf4ed; border:1px solid #b7dcbe; border-radius:4px; padding:8px 14px; font-size:12.5px; color:#0d4f2b; font-weight:600; margin-top:16px;">'
+            f'{status_msg} · <span style="color:#2e5b3b; font-weight:normal;">{words.get("chat_voice_tip", "🔊 Voice enabled")}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    profile = pack(alerts, forecast, watch, soil, vegetation, chosen_chat)
+    history_key = f"chat_{chosen_chat}_{st.session_state.lang}"
+    if history_key not in st.session_state:
+        st.session_state[history_key] = []
+    
+    st.markdown(
+        f'<div class="inner-wrap" style="padding-top:14px; padding-bottom:4px;">'
+        f'<p class="kicker-green" style="margin-bottom:8px;">{words.get("chat_select_prompt", "AI Intelligence Capabilities:")}</p>'
+        f'</div>',
         unsafe_allow_html=True,
     )
+    
+    # 2-Row Interactive AI Capability Chips
+    c1, c2, c3, c4 = st.columns(4)
+    quick = None
+    if c1.button(words.get("chat_btn_irrigation", "💧 Smart Irrigation"), key="btn_ai_irrig", width="stretch"):
+        quick = "irrigation"
+    if c2.button(words.get("chat_btn_insurance", "🛡️ Climate Insurance"), key="btn_ai_insur", width="stretch"):
+        quick = "insurance"
+    if c3.button(words.get("chat_btn_yield", "🧪 Yield Uplift ML"), key="btn_ai_yield", width="stretch"):
+        quick = "yield"
+    if c4.button(words.get("chat_btn_soil", "🏔️ Terraces & Soil"), key="btn_ai_soil", width="stretch"):
+        quick = "soil"
+        
+    c5, c6, c7, c8 = st.columns(4)
+    if c5.button(words.get("chat_btn_pests", "🐛 Pests & Fertilizer"), key="btn_ai_pests", width="stretch"):
+        quick = "pests"
+    if c6.button(words.get("chat_btn_market", "💰 Market & Storage"), key="btn_ai_market", width="stretch"):
+        quick = "market"
+    if c7.button(words.get("chat_btn_sms", "📱 160-Char SMS"), key="btn_ai_sms", width="stretch"):
+        quick = "sms"
+    if c8.button(words["chat_pill_week"], key="btn_ai_week", width="stretch"):
+        quick = "week"
 
-elif page == "home":
-    page_head(words["nav_data"], words["home_lead"], words)
-    t_overview, t_crops, t_calendar, t_rain = st.tabs([
+    if quick:
+        asked_label = {
+            "irrigation": words.get("chat_btn_irrigation", "Smart Irrigation Schedule"),
+            "insurance": words.get("chat_btn_insurance", "Climate Risk & Insurance"),
+            "yield": words.get("chat_btn_yield", "ML Yield Uplift Forecast"),
+            "soil": words.get("chat_btn_soil", "Terraces & Soil Health"),
+            "pests": words.get("chat_btn_pests", "Pest & Fertilizer Guide"),
+            "market": words.get("chat_btn_market", "Market Arbitrage & Storage"),
+            "sms": words.get("chat_btn_sms", "160-Char SMS Broadcast"),
+            "week": words["chat_pill_week"],
+        }.get(quick, quick)
+        
+        text = answer(asked_label, profile, words, st.session_state.lang, force_intent=quick)
+        st.session_state[history_key].append(("user", asked_label))
+        st.session_state[history_key].append(("bot", text))
+        st.rerun()
+
+    # Display chat history with audio speech playback buttons
+    for speaker, text in st.session_state[history_key]:
+        with st.chat_message("user" if speaker == "user" else "assistant"):
+            st.markdown(text)
+            if speaker == "bot":
+                st.components.v1.html(
+                    audio_speech_html(text, st.session_state.lang),
+                    height=52,
+                )
+
+    prompt = st.chat_input(words["chat_empty"])
+    if prompt:
+        text = answer(prompt, profile, words, st.session_state.lang)
+        st.session_state[history_key].append(("user", prompt))
+        st.session_state[history_key].append(("bot", text))
+        st.rerun()
+
+    st.markdown(site_footer(words), unsafe_allow_html=True)
+
+elif page == "data":
+    page_head(
+        words["src_title"],
+        words["src_lead"],
+        words,
+        kicker=words.get("kicker_data"),
+        sources=words.get("banner_sources_data"),
+        action=words.get("banner_action_data"),
+        tags=["Open Data Standard", "CSV / GeoJSON / Parquet", "Automated ETL"],
+    )
+    more_bar(words)
+    t_sources, t_overview, t_crops, t_calendar, t_rain = st.tabs([
+        words["tab_sources"],
         words["tab_overview"],
         words["tab_crops"],
         words["tab_calendar"],
         words["tab_rain"],
     ])
+    with t_sources:
+        cards = "".join(source_card(item, st.session_state.lang, words) for item in SOURCES)
+        st.markdown(f'<div class="inner-wrap">{cards}</div>', unsafe_allow_html=True)
 
     with t_overview:
         wide = survey_rows.pivot(index="year", columns="season", values="crop_rows").sort_index().reset_index()
@@ -858,39 +1749,100 @@ elif page == "home":
 
     st.markdown(site_footer(words), unsafe_allow_html=True)
 
-else:
-    page_head(words["how"], words["subtitle"], words)
-    steps = "".join(
-        f'<article><span class="step">0{i}</span><p>{words[key]}</p></article>'
-        for i, key in enumerate(("how_1", "how_2", "how_3", "how_4", "how_5", "how_6", "how_7", "how_8"), start=1)
+elif page == "method":
+    page_head(
+        words["method_title"],
+        words["method_lead"],
+        words,
+        kicker=words.get("kicker_method"),
+        sources=words.get("banner_sources_method"),
+        action=words.get("banner_action_method"),
+        tags=["FAO-56 Equations", "Holdout Cross-Validation", "Out-of-Sample Metrics"],
     )
-    benchmark_html = ""
+    more_bar(words)
+    steps = "".join(
+        f'<article><span class="step">{i:02d}</span><p>{words[key]}</p></article>'
+        for i, key in enumerate(("how_1", "how_2", "how_3", "how_4", "how_5", "how_6", "how_7", "how_8", "how_9", "how_10"), start=1)
+    )
+    glossary = "".join(
+        f"<p>{words[key]}</p>"
+        for key in ("gl_irrigation", "gl_rain", "gl_erosion", "gl_prod", "gl_yield", "gl_fert", "gl_terrace", "gl_forecast", "gl_warn", "gl_ndre", "gl_et0", "gl_etc")
+    )
+    benchmark_html = model_tables(benchmark, words)
     if benchmark and "models" in benchmark:
         benchmark_rows = [
             [m["name"], f"{m['mae_kg_ha']:.1f}", f"{m['rmse_kg_ha']:.1f}", f"{m['r2']:.3f}", m["verdict"]]
             for m in benchmark["models"]
         ]
-        feat_rows = [
-            ["Seasonal Rain (mm)", f"{benchmark['feature_importances'].get('rain_mm', 0)*100:.1f}%", "Growing season water volume"],
-            ["Rain Anomaly (% vs normal)", f"{benchmark['feature_importances'].get('rain_diff_pct', 0)*100:.1f}%", "Deficit/surplus vs district climatology"],
-            ["Sentinel NDRE Vegetation", f"{benchmark['feature_importances'].get('vegetation_mean', 0)*100:.1f}%", "Canopy chlorophyll & vegetative vigor"],
-            ["Organic Fertilizer Share", f"{benchmark['feature_importances'].get('organic_pct', 0)*100:.1f}%", "Manure application for soil organic carbon"],
-            ["Inorganic Fertilizer Share", f"{benchmark['feature_importances'].get('inorganic_pct', 0)*100:.1f}%", "Commercial NPK / DAP utilization"],
-            ["Small-Scale Irrigation Share", f"{benchmark['feature_importances'].get('irrigated_pct', 0)*100:.1f}%", "Mitigates dry spells at flowering"],
-            ["Soil Protection / Terracing", f"{benchmark['feature_importances'].get('protected_pct', 0)*100:.1f}%", "Prevents nutrient runoff on steep hills"],
-            ["Severe Erosion Concern", f"{benchmark['feature_importances'].get('concern_pct', 0)*100:.1f}%", "Vulnerability to rills, gullies, landslides"],
+        feat_keys = [
+            ("inorganic", "feat_inorganic"),
+            ("rain_diff_pct", "feat_rain"),
+            ("vegetation_mean", "feat_veg"),
+            ("organic_short", "feat_organic_short"),
+            ("organic", "feat_organic"),
+            ("protected", "feat_protected"),
+            ("erosion_moderate", "feat_erosion_moderate"),
+            ("irrigated", "feat_irrigated"),
+            ("erosion_severe", "feat_erosion_severe"),
         ]
-        benchmark_html = (
-            f'<div style="margin-top:40px;">'
-            f'<p class="kicker-green">{words["benchmark_title"]}</p>'
+        importances = (benchmark.get("pooled") or {}).get("feature_importances") or benchmark.get("feature_importances", {})
+        feat_rows = [
+            [words[label_key], f"{importances.get(name, 0) * 100:.1f}%"]
+            for name, label_key in feat_keys
+            if name in importances
+        ]
+        benchmark_html += (
+            f'<p class="kicker-green" style="margin-top:36px">{words["benchmark_title"]}</p>'
             f'<p class="section-p">{words["benchmark_lead"]}</p>'
-            + data_table(["Model Architecture", "MAE (kg/ha)", "RMSE (kg/ha)", "R² Score", "Evaluation Verdict"], benchmark_rows)
-            + f'<p class="kicker-green" style="margin-top:28px">Multi-Factor Feature Importances (Random Forest)</p>'
-            + data_table(["Predictor Variable", "Importance (%)", "Agronomic Role"], feat_rows)
-            + f'</div>'
+            + data_table(
+                [words["model_col"], words["mae_col"], words["rmse_col"], words["r2_col"], words["note_col"]],
+                benchmark_rows,
+            )
+            + f'<p class="kicker-green" style="margin-top:28px">{words["feat_title"]}</p>'
+            + data_table([words["note_col"], words["share_col"]], feat_rows)
         )
-
     st.markdown(
-        f'<div class="inner-wrap"><div class="method-list">{steps}</div>{benchmark_html}</div>' + site_footer(words),
+        f'<div class="inner-wrap"><div class="method-list">{steps}</div>{benchmark_html}'
+        f'<p class="kicker-green" style="margin-top:36px">{words["method_glossary"]}</p>'
+        f'<div class="glossary">{glossary}</div></div>',
         unsafe_allow_html=True,
     )
+    st.markdown(site_footer(words), unsafe_allow_html=True)
+
+elif page == "about":
+    page_head(
+        words["about_title"],
+        words["about_lead"],
+        words,
+        kicker=words.get("kicker_about"),
+        sources=words.get("banner_sources_about"),
+        action=words.get("banner_action_about"),
+        tags=["Vision 2050", "NST2 Strategic Priority 1", "MINAGRI / RAB / NISR"],
+    )
+    st.markdown(
+        '<div class="inner-wrap">'
+        f'<p class="section-p">{words["about_body"]}</p>'
+        f'<p class="kicker-green">{words["about_obj"]}</p>'
+        f'<p class="section-p">{words["about_obj_body"]}</p>'
+        f'<p class="kicker-green">{words["about_who"]}</p>'
+        '<div class="decision-grid">'
+        f'<article><h3>{words["role_farmer"]}</h3><p>{words["about_farmer"]}</p></article>'
+        f'<article><h3>{words["role_agronomist"]}</h3><p>{words["about_agro"]}</p></article>'
+        f'<article><h3>{words["role_policy"]}</h3><p>{words["about_policy"]}</p></article>'
+        "</div>"
+        f'<p class="kicker-green" style="margin-top:36px">{words["more_tools"]}</p>'
+        f'<p class="section-p">{words["about_ai"]}</p>'
+        f'<div class="note-box">{words["footer_disclaimer"]}</div>'
+        f'<p class="section-p">{words["footer_ack"]}</p>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    t1, t2, t3 = st.columns(3)
+    t1.button(words["nav_method"], width="stretch", key="about_method", on_click=jump, args=("method",))
+    t2.button(words["nav_data"], width="stretch", key="about_data", on_click=jump, args=("data",))
+    t3.button(words["nav_simulator"], width="stretch", key="about_sim", on_click=jump, args=("simulator",))
+    t4, t5, t6 = st.columns(3)
+    t4.button(words["nav_pilot"], width="stretch", key="about_pilot", on_click=jump, args=("pilot",))
+    t5.button(words["nav_season"], width="stretch", key="about_watch", on_click=jump, args=("watch",))
+    t6.button(words["nav_alerts"], width="stretch", key="about_alerts", on_click=jump, args=("alerts",))
+    st.markdown(site_footer(words), unsafe_allow_html=True)
