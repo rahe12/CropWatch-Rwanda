@@ -554,10 +554,10 @@ def audio_speech_html(text_content, lang="en"):
     clean_text = re.sub(r"\s+", " ", clean_text).strip()
     clean_text = clean_text[:400].replace("'", "\\'").replace('"', '\\"')
     lang_code = "rw-RW" if lang == "rw" else "en-US"
-    label = "🔊 Listen Aloud (Native Voice)" if lang == "en" else "🔊 Umva Inama Mu Majwi"
+    label = "🔊 Listen Aloud (Voice)" if lang == "en" else "🔊 Umva Inama Mu Majwi"
 
     return f"""
-    <div style="margin: 12px 0 16px; display: inline-flex; align-items: center; gap: 8px;">
+    <div style="margin: 8px 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #f3f8f4; border: 1px solid #cce5d4; border-radius: 999px; padding: 3px 10px;">
       <button onclick="
         try {{
           window.speechSynthesis.cancel();
@@ -568,19 +568,16 @@ def audio_speech_html(text_content, lang="en"):
         }} catch(e) {{
           console.error(e);
         }}
-      " style="background:#0d4f2b; color:#ffffff; border:none; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+      " style="background: linear-gradient(135deg, #0d4f2b 0%, #157340 100%); color:#ffffff; border:none; border-radius:999px; padding:5px 12px; font-size:11.5px; font-weight:750; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); transition: all 0.15s ease;">
         {label}
       </button>
-      <button onclick="window.speechSynthesis.cancel();" style="background:#f3f6f0; color:#b42318; border:1px solid #d5ddd0; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:11px;" title="Stop Voice">
+      <span style="font-size: 11px; color: #2e5b3b; font-weight: 600; padding: 0 4px;">0.95× Speed</span>
+      <button onclick="window.speechSynthesis.cancel();" style="background:#ffffff; color:#b42318; border:1px solid #d5ddd0; border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; justify-content:center;" title="Stop Voice">
         ⏹️
       </button>
     </div>
     """
 
-
-# ==============================================================================
-# UNIFIED DISPATCHER & CLOUD LLM FALLBACK
-# ==============================================================================
 
 def answer(user_text, profile, words, lang, hectares=0.5, force_intent=None):
     intent = force_intent or classify(user_text)
