@@ -699,7 +699,7 @@ if "pending_page" in st.session_state:
     if st.query_params.get("page") != dest:
         st.query_params["page"] = dest
 
-col_brand, col_nav, col_lang = st.columns([2.0, 5.4, 0.85], vertical_alignment="center")
+col_brand, col_nav, col_lang = st.columns([1.9, 5.4, 1.7], vertical_alignment="center")
 with col_brand:
     st.markdown(
         f"""
@@ -715,10 +715,6 @@ with col_brand:
             <span class="header-main-title">CropWatch Rwanda</span>
             <span class="header-sub-tag">National Decision Desk · NST2</span>
           </div>
-          <div class="topbar-status-badge">
-            <span class="topbar-status-dot"></span>
-            <span class="topbar-status-text"><strong>Season A 2026</strong></span>
-          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -727,12 +723,21 @@ with col_nav:
     page_nav = st.pills(
         "Page",
         options=list(NAV_PAGES),
-        format_func=lambda key: f"{NAV_ICONS.get(key, '')} {words[NAV_LABEL[key]]}",
+        format_func=lambda key: "ADVICE AI" if key == "advise" else words[NAV_LABEL[key]],
         default="home",
         label_visibility="collapsed",
         key="page_nav",
     )
 with col_lang:
+    st.markdown(
+        """
+        <div class="topbar-status-badge">
+          <span class="topbar-status-dot"></span>
+          <span class="topbar-status-text"><strong>Season A 2026</strong></span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     language = st.pills(
         "Language",
         options=["en", "rw"],

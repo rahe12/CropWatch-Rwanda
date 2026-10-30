@@ -88,11 +88,12 @@ footer.landing-footer { display: block !important; }
 [data-testid="stHorizontalBlock"]:has(.st-key-lang_nav):has(.st-key-page_nav) > [data-testid="stColumn"]:last-child {
   flex: 0 0 auto !important;
   width: auto !important;
-  min-width: 86px !important;
-  max-width: 100px !important;
+  min-width: 240px !important;
   display: flex !important;
+  flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-end !important;
+  gap: 12px !important;
 }
 .topbar-status-badge {
   display: inline-flex;
@@ -142,10 +143,13 @@ footer.landing-footer { display: block !important; }
 .st-key-map_layer [data-testid="stWidgetLabel"] { display: none !important; }
 .st-key-page_nav [data-testid="stButtonGroup"] {
   flex-wrap: nowrap !important;
-  gap: 2px !important;
+  gap: 6px !important;
   width: max-content !important;
-  justify-content: flex-start;
-  padding: 4px 0;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
 }
 .st-key-page_nav [data-testid="stButtonGroup"] > div {
   background: transparent !important;
@@ -154,36 +158,35 @@ footer.landing-footer { display: block !important; }
   flex: 0 0 auto !important;
 }
 .st-key-page_nav button {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2.5px solid transparent !important;
   box-shadow: none !important;
-  color: #d1e7d8 !important;
-  font-weight: 650 !important;
-  font-size: 13px !important;
-  border-radius: 999px !important;
-  border-bottom: 0 !important;
-  padding: 7px 15px !important;
-  min-height: 38px !important;
+  color: #cfe3d5 !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  letter-spacing: 0.01em !important;
+  border-radius: 4px !important;
+  padding: 8px 14px !important;
+  min-height: 42px !important;
   margin: 0 !important;
   white-space: nowrap !important;
   flex: 0 0 auto !important;
-  transition: all 0.16s ease !important;
+  transition: all 0.16s ease-in-out !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 5px !important;
 }
 .st-key-page_nav button:hover {
-  background: rgba(255, 255, 255, 0.20) !important;
-  border-color: rgba(196, 163, 90, 0.5) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
   color: #ffffff !important;
-  transform: translateY(-1px);
+  border-bottom: 2.5px solid rgba(196, 163, 90, 0.6) !important;
 }
 .st-key-page_nav button[aria-checked="true"] {
-  color: #062615 !important;
-  background: #ffffff !important;
-  border: 1px solid #c4a35a !important;
+  color: #ffffff !important;
+  background: rgba(196, 163, 90, 0.14) !important;
+  border-bottom: 2.5px solid #c4a35a !important;
   font-weight: 750 !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: none !important;
 }
 .st-key-lang_nav [data-testid="stButtonGroup"] {
   border: 1px solid rgba(196, 163, 90, 0.5) !important;
