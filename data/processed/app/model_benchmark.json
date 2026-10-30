@@ -1,0 +1,36 @@
+{
+  "models": [
+    {
+      "name": "Naive Rain Model (Linear)",
+      "mae_kg_ha": 334.2,
+      "rmse_kg_ha": 435.7,
+      "r2": 0.093,
+      "verdict": "Underperforms baseline; misses soil & input interactions."
+    },
+    {
+      "name": "Historical District Baseline",
+      "mae_kg_ha": 340.9,
+      "rmse_kg_ha": 425.8,
+      "r2": 0.134,
+      "verdict": "Standard historical average; cannot simulate policy interventions."
+    },
+    {
+      "name": "Multi-Factor Random Forest (AI/ML)",
+      "mae_kg_ha": 215.5,
+      "rmse_kg_ha": 270.7,
+      "r2": 0.65,
+      "verdict": "Top performer (-36% error reduction); captures soil, inputs & water."
+    }
+  ],
+  "feature_importances": {
+    "rain_mm": 0.3912,
+    "rain_diff_pct": 0.1867,
+    "vegetation_mean": 0.1154,
+    "organic_pct": 0.1132,
+    "inorganic_pct": 0.0685,
+    "irrigated_pct": 0.0531,
+    "protected_pct": 0.0407,
+    "concern_pct": 0.0313
+  },
+  "n_samples": 300
+}

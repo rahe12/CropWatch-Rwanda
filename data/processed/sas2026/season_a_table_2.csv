@@ -1,0 +1,9 @@
+year,season,sheet,0,1,2,3,4,5,6
+2026,A,Table 2,,Table 2: List of strata ,,,,,
+2026,A,Table 2,,Stratum code ,Stratum name,Definition,,,
+2026,A,Table 2,,1,Dominant hill crop land ,Clusters with Hillside agricultural land cover class greater or equal to 60 percent of the total area of the cluster,,,
+2026,A,Table 2,,2,Dominant Wetland crops,Clusters with non-rice wetland land cover class greater than 25 percent of total area of the cluster,,,
+2026,A,Table 2,,3,Dominant rangeland,Clusters with rangeland land cover class greater or equal to 60 percent of the total area of the cluster,,,
+2026,A,Table 2,,4,Mixed stratum,The rest of other possible combinations,,,
+2026,A,Table 2,,9,Excluded ,All clusters with excluded land cover classes greater or equal to 50 percent of the total area of the cluster,,,
+2026,A,Table 2,,"Source: NISR, SAS 2026",,,,,
