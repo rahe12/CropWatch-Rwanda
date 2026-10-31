@@ -1,0 +1,31 @@
+district,district_pcode,province,province_code,province_rw,district_rw
+Gasabo,RW12,Kigali City,RW1,Umujyi wa Kigali,Gasabo
+Kicukiro,RW13,Kigali City,RW1,Umujyi wa Kigali,Kicukiro
+Nyarugenge,RW11,Kigali City,RW1,Umujyi wa Kigali,Nyarugenge
+Gisagara,RW22,Southern Province,RW2,Amajyepfo,Gisagara
+Huye,RW24,Southern Province,RW2,Amajyepfo,Huye
+Kamonyi,RW28,Southern Province,RW2,Amajyepfo,Kamonyi
+Muhanga,RW27,Southern Province,RW2,Amajyepfo,Muhanga
+Nyamagabe,RW25,Southern Province,RW2,Amajyepfo,Nyamagabe
+Nyanza,RW21,Southern Province,RW2,Amajyepfo,Nyanza
+Nyaruguru,RW23,Southern Province,RW2,Amajyepfo,Nyaruguru
+Ruhango,RW26,Southern Province,RW2,Amajyepfo,Ruhango
+Karongi,RW31,Western Province,RW3,Iburengerazuba,Karongi
+Ngororero,RW35,Western Province,RW3,Iburengerazuba,Ngororero
+Nyabihu,RW34,Western Province,RW3,Iburengerazuba,Nyabihu
+Nyamasheke,RW37,Western Province,RW3,Iburengerazuba,Nyamasheke
+Rubavu,RW33,Western Province,RW3,Iburengerazuba,Rubavu
+Rusizi,RW36,Western Province,RW3,Iburengerazuba,Rusizi
+Rutsiro,RW32,Western Province,RW3,Iburengerazuba,Rutsiro
+Burera,RW44,Northern Province,RW4,Amajyaruguru,Burera
+Gakenke,RW42,Northern Province,RW4,Amajyaruguru,Gakenke
+Gicumbi,RW45,Northern Province,RW4,Amajyaruguru,Gicumbi
+Musanze,RW43,Northern Province,RW4,Amajyaruguru,Musanze
+Rulindo,RW41,Northern Province,RW4,Amajyaruguru,Rulindo
+Bugesera,RW57,Eastern Province,RW5,Iburasirazuba,Bugesera
+Gatsibo,RW53,Eastern Province,RW5,Iburasirazuba,Gatsibo
+Kayonza,RW54,Eastern Province,RW5,Iburasirazuba,Kayonza
+Kirehe,RW55,Eastern Province,RW5,Iburasirazuba,Kirehe
+Ngoma,RW56,Eastern Province,RW5,Iburasirazuba,Ngoma
+Nyagatare,RW52,Eastern Province,RW5,Iburasirazuba,Nyagatare
+Rwamagana,RW51,Eastern Province,RW5,Iburasirazuba,Rwamagana

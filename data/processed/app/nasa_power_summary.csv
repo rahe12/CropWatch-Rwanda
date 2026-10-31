@@ -1,0 +1,5 @@
+district,start,end,n_days,temp_mean_c,temp_max_c,humidity_mean_pct,solar_mean_mj_m2,rain_mm,source,fetched_on
+Bugesera,2026-09-01,2026-10-30,60,22.3,32.8,62.6,16.56,152.4,"NASA POWER daily point, community AG, district midpoint",2026-10-31
+Nyagatare,2026-09-01,2026-10-30,60,23.4,34.6,61.7,15.57,153.9,"NASA POWER daily point, community AG, district midpoint",2026-10-31
+Musanze,2026-09-01,2026-10-30,60,19.4,27.9,71.2,16.86,238.0,"NASA POWER daily point, community AG, district midpoint",2026-10-31
+Nyaruguru,2026-09-01,2026-10-30,60,21.8,31.4,62.6,17.57,159.3,"NASA POWER daily point, community AG, district midpoint",2026-10-31
