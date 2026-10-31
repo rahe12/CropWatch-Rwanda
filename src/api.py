@@ -8,8 +8,13 @@ Does not load joblib models, pay NAIS, or forecast 30/60/90-day prices.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Optional
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
@@ -17,8 +22,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.advise import answer, pack
 from src.logic import drought_screen, plot_package
-
-ROOT = Path(__file__).resolve().parents[1]
 APP_TABLES = ROOT / "data" / "processed" / "app"
 PROCESSED = ROOT / "data" / "processed"
 PILOTS = ("Bugesera", "Nyagatare", "Musanze", "Nyaruguru")

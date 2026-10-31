@@ -33,7 +33,3 @@ venv/
 # OS generated files
 .DS_Store
 Thumbs.db
-<<<<<<< HEAD
-=======
-.streamlit/secrets.toml
->>>>>>> nisr-publish
