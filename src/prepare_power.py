@@ -8,18 +8,18 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import pandas as pd
 
+from src.logic import season_a_dates
+
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "data" / "processed" / "app"
 PILOTS = ("Bugesera", "Nyagatare", "Musanze", "Nyaruguru")
-START = date(2026, 9, 1)
-END = date(2026, 10, 29)
+START, _PLANT, TODAY, END = season_a_dates()
 PARAMS = "T2M,T2M_MAX,T2M_MIN,RH2M,WS2M,ALLSKY_SFC_SW_DWN,PRECTOTCORR"
 
 
@@ -100,7 +100,7 @@ def main():
                 "solar_mean_mj_m2": round(float(keep["solar_mj_m2"].mean()), 2),
                 "rain_mm": round(float(keep["rain_mm"].sum()), 1),
                 "source": "NASA POWER daily point, community AG, district midpoint",
-                "fetched_on": date(2026, 10, 30).isoformat(),
+                "fetched_on": TODAY.isoformat(),
             }
         )
     if not daily_parts:

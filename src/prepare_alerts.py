@@ -16,13 +16,15 @@ import io
 import json
 import time
 import zipfile
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import pandas as pd
 import shapefile
+
+from src.logic import season_a_dates
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
@@ -33,13 +35,10 @@ SHAPE_NAME = "rwa_adm2_2006_NISR_WGS1984_20181002"
 YEAR = 2022
 SEASON = "A"
 USUAL_YEARS = list(range(2018, 2026))
-SEASON_START = date(2026, 9, 1)
-TODAY = date(2026, 10, 30)
-ARCHIVE_END = TODAY - timedelta(days=1)
+SEASON_START, PLANT_DATE, TODAY, ARCHIVE_END = season_a_dates()
 # FAO GIEWS Season A maize window is September–October. Mid-window is an
 # assumed plant date, not a field visit. Kc from FAO-56 Table 12 (maize grain)
 # and tropical stage lengths from Table 11.
-PLANT_DATE = date(2026, 9, 15)
 LINI, LDEV, LMID, LLATE = 20, 35, 40, 30
 KC_INI, KC_MID, KC_END = 0.30, 1.20, 0.60
 

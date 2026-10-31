@@ -12,49 +12,31 @@ The system bridges satellite earth observation (CHIRPS climatology, NASA POWER a
 
 ```mermaid
 flowchart TD
-    subgraph Data Sources [Satellite, Survey & Market Data Sources]
-        A1[NISR SAS Microdata\n2018-2026 Season A & B\n28,042 Plot Records]
-        A2[CHIRPS & Meteo Rwanda\n1981-2026 Precipitation Climatology]
-        A3[NASA POWER & Open-Meteo\nSolar, Temp, RH, 7-Day Forecast]
-        A4[WFP VAM & UN Comtrade\nRetail Food Prices & Cross-Border Flows]
+    subgraph Data Sources
+        A1[NISR SAS Season A 2022 shares\n11,148 maize plots for OLS]
+        A2[CHIRPS usual Sep-Oct 2018-2025]
+        A3[Open-Meteo rain and 7-day forecast]
+        A4[WFP maize kg if a row exists]
     end
-
-    subgraph Processing & Models [ETL & Machine Learning Engine]
-        B1[Data Cleansing & Spatial Alignment\nETL Scripts in src/prepare_*.py]
-        B2[maize_yield_model.joblib\nRandomForest & KNN Retrieval]
-        B3[drought_risk_classifier.joblib\nParametric Insurance Classifier]
-        B4[market_price_forecaster.joblib\nAutoregressive RidgeCV]
+    subgraph Rules
+        B1[Alert classify + FAO-56 week]
+        B2[2022 within-district OLS]
+        B3[Drought screen = same as map]
     end
-
-    subgraph Services [Application & API Services]
-        C1[Streamlit Reactive Application\napp.py on Port 8502]
-        C2[FastAPI Enterprise Service\nsrc/api.py on Port 8000]
-        C3[AI Agronomic Copilot\nsrc/advise.py with Web Speech API]
+    subgraph Services
+        C1[Streamlit app.py]
+        C2[FastAPI src/api.py]
+        C3[Advice AI local tables]
     end
-
-    subgraph Users [User Stakeholders & Touchpoints]
-        D1[Smallholder Farmers\nUSSD *801# & 160-Char Field SMS]
-        D2[RAB Field Extension Agronomists\nTablet / Mobile Web App & Voice Audio]
-        D3[MINAGRI & NST2 Policymakers\nStrategic Dashboards & HTML Reports]
-    end
-
     A1 --> B1
+    A1 --> B2
     A2 --> B1
     A3 --> B1
-    A4 --> B1
-    B1 --> B2
-    B1 --> B3
-    B1 --> B4
+    A4 --> C1
+    B1 --> C1
     B2 --> C1
     B3 --> C1
-    B4 --> C1
-    B2 --> C2
-    B3 --> C2
-    B4 --> C2
     C1 --> C3
-    C3 --> D1
-    C3 --> D2
-    C1 --> D3
 ```
 
 ---
@@ -73,18 +55,11 @@ flowchart TD
   5. Severe Soil Erosion Risk (%)
   6. Sentinel-2 NDRE Chlorophyll Vegetation Health Index
 
-### 3.2 Machine Learning & Analytical Layer (`src/advise.py` & `data/processed/models/`)
-The system completely replaces static templates with three trained, pre-warmed scikit-learn models:
-1. **Plot-Level Yield Regressor & KNN Case Retrieval (`maize_yield_model.joblib` — 9.6 MB):**
-   - **Architecture:** `RandomForestRegressor` ($n=160, \text{max\_depth}=7$) + `RidgeCV` + `NearestNeighbors` ($k=3$).
-   - **Training Set:** 28,042 real NISR SAS plot microdata records.
-   - **Capabilities:** Live yield forecasting, counterfactual intervention uplift (+irrigation, +fertilizer, +terraces), and case-based retrieval returning real matching surveyed plots.
-2. **Parametric Drought Risk Classifier (`drought_risk_classifier.joblib` — 265 KB):**
-   - **Architecture:** `RandomForestClassifier` trained on crop water balance ($P_e - ET_c$), seasonal rainfall anomaly, and irrigated share.
-   - **Capabilities:** Probabilistic risk estimation ($P(\text{Crisis})$, $P(\text{Watch})$, $P(\text{Stable})$), automatically triggering Parametric Crop Insurance payouts (**NAIS / *Tekana Urishingiwe***).
-3. **Autoregressive Commodity Price Forecaster (`market_price_forecaster.joblib` — 1.7 KB):**
-   - **Architecture:** Autoregressive `RidgeCV` ($R^2 = 0.705$) trained on 2,728 historical WFP retail market observations.
-   - **Capabilities:** Forecasts grain prices at 30, 60, and 90-day forward horizons; models triple-layer hermetic PICS bag storage arbitrage.
+### 3.2 Analytical layer (`src/logic.py`)
+There is **no joblib model loaded at runtime**. One rules file drives Streamlit and FastAPI:
+1. **Yield what-if:** Season A 2022 within-district OLS on 11,148 maize plots (1st–99th yield window). Associations, not a 2026 harvest. A Random Forest comparison lives in `data/processed/app/model_benchmark.json` only.
+2. **Water screen:** Same thresholds as `src/prepare_alerts.py` classify(). Not an NAIS / Tekana payout.
+3. **Prices:** Latest WFP VAM maize kg where a row exists. No 30/60/90-day forecast.
 
 ### 3.3 Programmatic API Layer (`src/api.py`)
 - **Framework:** FastAPI with CORS middleware.
@@ -95,22 +70,22 @@ The system completely replaces static templates with three trained, pre-warmed s
   - `GET /api/alerts`: Comprehensive 30-district risk records.
   - `GET /api/pilots`: Merged telemetry for Bugesera, Nyagatare, Musanze, and Nyaruguru.
   - `GET /api/districts/{name}`: Full profile, 7-day forecast, and NASA POWER daily series.
-  - `GET /api/models/yield/{district}`: Live scikit-learn yield uplift inference.
-  - `GET /api/models/drought/{district}`: Live parametric insurance probability inference.
-  - `GET /api/models/prices/{district}`: Live 30/60/90-day commodity price forecasting.
-  - `GET /api/chat/ask`: Conversational AI endpoint returning agronomic advice.
+  - `GET /api/models/yield/{district}`: 2022 OLS plot package.
+  - `GET /api/models/drought/{district}`: Same water screen as the map (`nais_parametric_insurance_payout_triggered` is always false).
+  - `GET /api/models/prices/{district}`: Latest WFP maize row; `forecast` is null.
+  - `GET /api/chat/ask`: Advice from local tables.
 
 ### 3.4 Data Storage & Lookup Layer (`data/processed/`)
 - All datasets are structured in high-performance columnar formats (CSV, Parquet, GeoJSON):
   - `data/processed/app/`: Curated application tables for immediate memory-mapped reading.
   - `data/processed/lookups/`: Official HS code matches, crop calendar zones, and district metadata.
-  - `data/processed/models/`: Serialized scikit-learn model bundles.
+  - `data/processed/models/`: Empty at runtime. Do not claim loaded `.joblib` files.
   - `data/processed/sas/`: Cleaned microdata tables extracted from official NISR STATA archives.
 
 ---
 
 ## 4. Security & Data Governance
 
-1. **Sandboxing & Offline Reliability:** The entire analytical engine runs locally with zero mandatory cloud dependencies. All scikit-learn inferences execute in $<10\text{ ms}$ on commodity hardware.
-2. **Data Integrity:** No simulated, fake, or synthetic records are ever presented as ground truth. Historical survey data (NISR SAS) is strictly distinguished from real-time API forecasts (Open-Meteo) and statistical models.
+1. **Offline core:** Alerts, yield gaps and SSIT figures come from local CSVs. Groq is optional grammar only.
+2. **Data integrity:** NISR SAS 2022 shares are distinct from Open-Meteo rain and from OLS associations. The app does not invent NAIS payouts or 60-day maize prices.
 3. **Attribution Standards:** Every AI recommendation, table, and visualization explicitly cites the underlying dataset, geographic level, reporting period, and measurement units.

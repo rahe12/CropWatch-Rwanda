@@ -2,11 +2,13 @@
 
 ## 1. Overview & Service Architecture
 
-The **CropWatch Rwanda REST API** (`src/api.py`) is an asynchronous, high-throughput microservice built on **FastAPI** and **Uvicorn**. It exposes programmatic interfaces to:
-- 30-district early warning agrometeorological alerts.
-- Live Open-Meteo 7-day numerical forecasts and NASA POWER solar/temperature telemetry.
-- Serialized machine learning models (`maize_yield_model`, `drought_risk_classifier`, `market_price_forecaster`).
-- The bilingual **AI Agronomic Copilot** inference engine (`src/advise.py`).
+The **CropWatch Rwanda REST API** (`src/api.py`) is the same district pack as the Streamlit desk, served with FastAPI:
+- 30-district alerts (SAS 2022 irrigation share, Open-Meteo vs CHIRPS, FAO-56 week).
+- District profile and 7-day Open-Meteo forecast.
+- Yield: Season A 2022 OLS on 11,148 maize plots (not a loaded Random Forest).
+- Drought: same water screen as the map. Payout flag is always false.
+- Prices: latest WFP maize row only.
+- Advice: local tables first (`src/advise.py`).
 
 ### Base Server Specifications
 - **Framework:** FastAPI `0.100+` / Python `3.12`
@@ -28,10 +30,10 @@ The **CropWatch Rwanda REST API** (`src/api.py`) is an asynchronous, high-throug
 | `GET` | `/api/alerts` | Complete 30-district irrigation, soil, and climate alert table | None |
 | `GET` | `/api/pilots` | High-resolution telemetry for Bugesera, Nyagatare, Musanze, Nyaruguru | None |
 | `GET` | `/api/districts/{name}` | Comprehensive profile, 7-day forecast & NASA telemetry for a district | `name` (path, string) |
-| `GET` | `/api/models/yield/{district}` | Multi-factor maize yield simulation & revenue uplift | `district` (path, string) |
-| `GET` | `/api/models/drought/{district}` | Climate crisis probability & NAIS parametric insurance payout trigger | `district` (path, string) |
-| `GET` | `/api/models/prices/{district}` | WFP retail price forecast & post-harvest hermetic storage arbitrage | `district` (path, string) |
-| `GET` | `/api/chat/ask` | AI Agronomic Copilot semantic inference in English or Kinyarwanda | `q` (query), `district` (query), `lang` (query) |
+| `GET` | `/api/models/yield/{district}` | 2022 OLS plot package (not a 2026 harvest) | `district` (path, string) |
+| `GET` | `/api/models/drought/{district}` | Same water screen as the map; NAIS payout always false | `district` (path, string) |
+| `GET` | `/api/models/prices/{district}` | Latest WFP maize kg; no 30/60/90-day forecast | `district` (path, string) |
+| `GET` | `/api/chat/ask` | Advice from local tables (EN / RW) | `q` (query), `district` (query), `lang` (query) |
 
 ---
 
@@ -171,74 +173,62 @@ Fetches joined satellite agrometeorology and weather forecasts for Rwanda's 4 di
 
 ---
 
-### 3.7 Machine Learning Maize Yield Simulator
+### 3.7 Yield what-if (2022 OLS)
 `GET /api/models/yield/{district}`
 
-Executes the Random Forest regressor trained on 28,042 NISR SAS plot microdata. Computes counterfactual simulations comparing rainfed production against supplementary irrigation and a full climate-smart package (irrigation + inorganic fertilizer + progressive terracing).
-
-**Path Parameters:**
-- `district` *(string, required)*: Target district.
+Returns the Season A 2022 within-district OLS package (11,148 maize plots). Associations, not a 2026 harvest forecast.
 
 **Example Response (200 OK):**
 ```json
 {
   "district": "Bugesera",
-  "baseline_yield_kg_ha": 1342.5,
-  "with_supplementary_irrigation_kg_ha": 1728.3,
-  "with_full_climate_smart_package_kg_ha": 2380.1,
-  "yield_uplift_kg_ha": 1037.6,
-  "price_rwf_per_kg": 460.0,
-  "revenue_uplift_rwf_ha": 477296.0,
-  "model": "RandomForestRegressor (28,042 NISR SAS plots)"
+  "baseline_yield_kg_ha": 1342.0,
+  "with_supplementary_irrigation_kg_ha": 1707.0,
+  "yield_uplift_irrigation_kg_ha": 365.0,
+  "model": "Season A 2022 within-district OLS (11,148 maize plots). Not a 2026 harvest."
 }
 ```
 
 ---
 
-### 3.8 Parametric Drought Insurance Trigger
+### 3.8 Water screen (not an NAIS payout)
 `GET /api/models/drought/{district}`
 
-Evaluates the multi-class Drought Classifier against current root-zone moisture deficits, triggering official payouts for the National Agricultural Insurance Scheme (**NAIS / Tekana Urishingiwe Muhinzi**).
+Same alert rule as the map. CropWatch does not pay NAIS / Tekana.
 
 **Example Response (200 OK):**
 ```json
 {
   "district": "Nyagatare",
-  "probability_crisis_pct": 38.4,
-  "probability_watch_pct": 45.2,
-  "probability_stable_pct": 16.4,
-  "nais_parametric_insurance_payout_triggered": true,
-  "model": "RandomForestClassifier"
+  "cropwatch_water_flag": true,
+  "nais_parametric_insurance_payout_triggered": false,
+  "model": "Same alert rule as prepare_alerts.classify (not NAIS)"
 }
 ```
 
 ---
 
-### 3.9 Post-Harvest Market Price Arbitrage
+### 3.9 Latest WFP maize (no forecast)
 `GET /api/models/prices/{district}`
 
-Uses the autoregressive harmonic `RidgeCV` model trained on 2,728 historical WFP market observations to forecast maize prices 30, 60, and 90 days post-harvest. Evaluates whether investing in hermetic storage bags (PICS bags at 28 RWF/kg equivalent amortization) generates positive economic arbitrage.
+Returns the latest WFP VAM maize kg if a row exists. `forecast` is always null.
 
 **Example Response (200 OK):**
 ```json
 {
   "district": "Musanze",
   "current_price_rwf_kg": 480.0,
-  "projected_price_30d_rwf_kg": 492.4,
-  "projected_price_60d_rwf_kg": 513.1,
-  "projected_price_90d_rwf_kg": 534.2,
-  "hermetic_pics_bag_cost_rwf_kg": 28.0,
-  "net_arbitrage_gain_90d_rwf_kg": 26.2,
-  "model": "Autoregressive RidgeCV (2,728 WFP records)"
+  "forecast": null,
+  "note": "Latest WFP maize row only. No 30/60/90-day forecast is computed."
 }
 ```
 
 ---
 
-### 3.10 AI Agronomic Copilot Query
+### 3.10 Advice query
 `GET /api/chat/ask`
 
-Executes the semantic conversational intelligence engine. Classifies intent across 16 categories, retrieves empirical district microdata, and formats natural bilingual responses.
+Answers from district tables. Groq is optional grammar rewrite when a key is present.
 
 **Query Parameters:**
 - `q` *(string, required)*: The agronomic or platform query (e.g., `"Should I irrigate maize this week in Bugesera?"`, `"Ese imvura irahagije muri Musanze?"`).

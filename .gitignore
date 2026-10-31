@@ -27,6 +27,9 @@ venv/
 # Streamlit secrets
 .streamlit/secrets.toml
 
+# Editor
+.vscode/
+
 # OS generated files
 .DS_Store
 Thumbs.db

@@ -1,8 +1,6 @@
-"""CropWatch Rwanda — Production Machine Learning AI Engine & Agronomic Copilot.
-Directly executes inference on trained scikit-learn models (RandomForest, Ridge, KNN)
-loaded from real NISR Seasonal Agricultural Survey microdata, CHIRPS, and WFP price records.
-Provides conversational intelligence, semantic intent classification, context-aware follow-ups,
-and direct data retrieval across all 30 districts of Rwanda in English and Kinyarwanda.
+"""CropWatch Copilot: district tables, 2022 yield gaps, alert rule, SMS draft.
+
+Does not run a live NAIS payout or a 90-day price forecast.
 """
 
 from __future__ import annotations
@@ -11,66 +9,36 @@ import os
 import re
 from pathlib import Path
 
-import joblib
-import numpy as np
 import pandas as pd
 import requests
+
+from src.logic import (
+    N_PLOTS_SIM_2022A,
+    drought_screen,
+    kit_for_hectares,
+    load_effects,
+    plot_package,
+    ssit_plan,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
 APP_TABLES = PROCESSED / "app"
 LOOKUPS = PROCESSED / "lookups"
-MODELS_DIR = PROCESSED / "models"
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
+# llama-3.1-8b-instant shut down for free/dev Groq on 16 Aug 2026.
+GROQ_MODELS = ("openai/gpt-oss-20b", "llama-3.1-8b-instant")
+GROQ_MODEL = GROQ_MODELS[0]
 GEMINI_MODEL = "gemini-2.0-flash"
+LAST_LLM_ERROR = ""
 
 HELLO_WORDS = {
     "hey", "hi", "hello", "yo", "muraho", "mwiriwe", "bite", "salut",
     "good morning", "good afternoon", "good evening", "komera", "mwaramutse",
 }
 
-# -----------------------------------------------------------------------------
-# LAZY LOAD TRAINED MACHINE LEARNING MODELS
-# -----------------------------------------------------------------------------
-_YIELD_BUNDLE = None
-_DROUGHT_BUNDLE = None
-_PRICE_BUNDLE = None
 _LOOKUPS_CACHE = {}
-
-
-def get_models():
-    global _YIELD_BUNDLE, _DROUGHT_BUNDLE, _PRICE_BUNDLE
-    if _YIELD_BUNDLE is None:
-        p_yield = MODELS_DIR / "maize_yield_model.joblib"
-        if p_yield.exists():
-            try:
-                _YIELD_BUNDLE = joblib.load(p_yield)
-            except Exception:
-                _YIELD_BUNDLE = None
-    if _DROUGHT_BUNDLE is None:
-        p_drought = MODELS_DIR / "drought_risk_classifier.joblib"
-        if p_drought.exists():
-            try:
-                _DROUGHT_BUNDLE = joblib.load(p_drought)
-            except Exception:
-                _DROUGHT_BUNDLE = None
-    if _PRICE_BUNDLE is None:
-        p_price = MODELS_DIR / "market_price_forecaster.joblib"
-        if p_price.exists():
-            try:
-                _PRICE_BUNDLE = joblib.load(p_price)
-            except Exception:
-                _PRICE_BUNDLE = None
-    return _YIELD_BUNDLE, _DROUGHT_BUNDLE, _PRICE_BUNDLE
-
-
-# Pre-warm models on module load for sub-5ms instant inference
-try:
-    get_models()
-except Exception:
-    pass
 
 
 def get_lookups():
@@ -145,9 +113,9 @@ def pack(alerts, forecast, watch, soil, vegetation, district, season="A"):
         "deficit_mm": deficit_mm,
         "liters_ha": liters_ha,
         "kc": float(alert["kc_maize"]) if "kc_maize" in alert and pd.notna(alert.get("kc_maize")) else 1.15,
-        "price": price or (national_price or 435.0),
+        "price": price if price is not None else national_price,
         "price_date": price_date or "Latest",
-        "national_price": national_price or 435.0,
+        "national_price": national_price,
         "veg_now": float(veg_2026["vegetation_mean"].iloc[0]) if not veg_2026.empty else 0.42,
         "veg_usual": float(veg_hist["vegetation_mean"].mean()) if not veg_hist.empty else 0.44,
         "week": week,
@@ -158,16 +126,31 @@ def pack(alerts, forecast, watch, soil, vegetation, district, season="A"):
     }
 
 
+def _usable_key(val):
+    text = str(val or "").strip()
+    if not text:
+        return ""
+    low = text.lower()
+    if "paste" in low or "your_" in low or text.endswith("_here"):
+        return ""
+    return text
+
+
 def secret(name):
-    val = os.environ.get(name, "").strip()
-    if val:
-        return val
+    got = _usable_key(os.environ.get(name, ""))
+    if got:
+        return got
     try:
         import streamlit as st
-        got = st.secrets.get(name, "")
-        return str(got).strip() if got else ""
+        got = _usable_key(st.secrets.get(name, ""))
+        if got:
+            return got
+        got = _usable_key(st.session_state.get(name, ""))
+        if got:
+            return got
     except Exception:
-        return ""
+        pass
+    return ""
 
 
 def llm_status():
@@ -218,12 +201,12 @@ def get_followups(intent, lang="en"):
     followup_map = {
         "yield": [
             ("💧 Inyungu yo Kuhira" if is_rw else "💧 Irrigation Uplift"),
-            ("💰 Ibiciro bya WFP n'Ubuhuniki" if is_rw else "💰 WFP Price Forecast"),
-            ("📱 Kohereza SMS ku Bahinzi" if is_rw else "📱 Generate 160-Char SMS"),
+            ("💰 Igiciro cya WFP" if is_rw else "💰 Latest WFP maize price"),
+            ("📱 Inyandiko ya SMS (ntikohereza)" if is_rw else "📱 SMS draft (not sent)"),
         ],
         "irrigation": [
             ("🧪 Kubara Umusaruro wose" if is_rw else "🧪 Run Yield Simulation"),
-            ("🛡️ Ubwishingizi bwa NAIS" if is_rw else "🛡️ NAIS Drought Insurance"),
+            ("🛡️ Icyuho cy'amazi (si NAIS)" if is_rw else "🛡️ Water-stress screen (not NAIS)"),
             ("💰 Gahunda ya SSIT ya 50%" if is_rw else "💰 50% SSIT Equipment Subsidy"),
         ],
         "insurance": [
@@ -254,7 +237,7 @@ def get_followups(intent, lang="en"):
         "seasons": [
             ("🌱 Igihe cyo Gutera Imbuto" if is_rw else "🌱 Sowing Windows & Spacing"),
             ("🌧️ Iteganyagihe ry'Icyumweru" if is_rw else "🌧️ 7-Day Weather Forecast"),
-            ("🛡️ Ubwishingizi bwa NAIS" if is_rw else "🛡️ NAIS Crop Insurance"),
+            ("🛡️ Icyuho cy'amazi (si NAIS)" if is_rw else "🛡️ Water-stress screen (not NAIS)"),
         ],
         "spacing": [
             ("🧪 Ifumbire ya DAP n'Ibigori" if is_rw else "🧪 DAP Fertilizer Rates"),
@@ -267,11 +250,13 @@ def get_followups(intent, lang="en"):
             ("🌧️ Iteganyagihe ry'Icyumweru" if is_rw else "🌧️ 7-Day Weather Forecast"),
         ],
     }
-    return followup_map.get(intent, [
+    chips = followup_map.get(intent, [
         ("🧪 Kubara Umusaruro (ML)" if is_rw else "🧪 Predict Maize Yield (ML)"),
         ("💧 Kureba Icyuho cy'Amazi" if is_rw else "💧 Check Irrigation Deficit"),
         ("💰 Ibiciro ku Masoko" if is_rw else "💰 Market Prices & Arbitrage"),
     ])
+    rephrase = "✏️ Vuga mu yandi magambo" if is_rw else "✏️ Rephrase this"
+    return [rephrase] + [c for c in chips if c != rephrase][:2]
 
 
 def classify(text, context=None):
@@ -283,6 +268,13 @@ def classify(text, context=None):
     # 1. Greetings
     if raw in HELLO_WORDS or raw.startswith(("hey ", "hi ", "hello ", "muraho ", "bite ")):
         return "hello"
+
+    if any(k in raw for k in (
+        "rephrase", "paraphrase", "rewrite", "say it simpler", "in other words",
+        "make it simpler", "say that again", "vuga mu yandi", "sobanura mu yandi",
+        "ongera uvuge", "mu magambo yoroshye",
+    )):
+        return "rephrase"
 
     # 1b. Engineering Team & Hackathon Authorship
     if any(k in raw for k in ("who created", "who built", "authors", "creator", "developers", "team", "hackathon", "murenzi", "bahire", "polytechnic", "byakozwe na nde", "irushanwa", "abakoze uyu mushinga")):
@@ -365,304 +357,158 @@ def classify(text, context=None):
 
     return "general_agronomy"
 
-    # 10. Context-aware follow-up: if user mentions another district name, repeat last intent
-    if context and "last_intent" in context:
-        return context["last_intent"]
-
-    return "week"
-
-
-def kit_for_hectares(hectares):
-    if hectares < 0.5:
-        return "treadle", "Manual foot treadle pump with suction hose", "Pompi ikoreshwa n'amaguru n'umuyoboro ukomeye"
-    if hectares <= 2.0:
-        return "solar", "Solar surface/submersible pump (1.5 kW) with a 2ha drip kit", "Pompi y'imirasire y'izuba (1.5 kW) n'uburyo bwa drip"
-    return "motor", "High-flow portable motor pump (5.5 HP) with rain-gun sprinklers", "Pompi y'imashini (5.5 HP) ifite imywira ya rain-gun"
-
 
 # ==============================================================================
 # REAL MACHINE LEARNING INFERENCE ENGINES (TRAINED ON NISR & WFP DATA)
 # ==============================================================================
 
+def _rwf(p, kg):
+    price = p.get("price")
+    if price is None:
+        return "—"
+    return f"{kg * float(price):,.0f} RWF"
+
+
 def ai_yield_ml(p, lang="en"):
-    """Live inference using trained RandomForestRegressor & KNN Case-Based Retrieval on 28,042 plots."""
-    y_bundle, _, _ = get_models()
+    """Same 2022 OLS gaps as the Yield Simulator. Not a Random Forest harvest."""
     d = p["district"]
-    usual_y = p["usual_yield"]
-
-    if y_bundle is not None:
-        rf = y_bundle["rf_model"]
-        knn = y_bundle["knn_model"]
-        ref_df = y_bundle["plot_reference_df"]
-        feats = y_bundle["feature_names"]
-
-        # 1. Base input features for this district
-        x_base = pd.DataFrame([{
-            "irrigated": int(p["irrigated_pct"] > 5),
-            "organic": 1,
-            "organic_short": 0,
-            "inorganic": 0,
-            "protected": int(p["protected_pct"] > 50),
-            "erosion_moderate": 0,
-            "erosion_severe": int(p["concern_pct"] > 30),
-            "rain_diff_pct": p["rain_pct"],
-            "vegetation_mean": p["veg_now"],
-        }])[feats]
-
-        # Model inferences
-        pred_base = float(rf.predict(x_base)[0])
-        
-        # Counterfactual A: Add Irrigation
-        x_irrig = x_base.copy()
-        x_irrig["irrigated"] = 1
-        pred_irrig = float(rf.predict(x_irrig)[0])
-
-        # Counterfactual B: Add Inorganic Fertilizer (DAP / Urea)
-        x_fert = x_base.copy()
-        x_fert["inorganic"] = 1
-        pred_fert = float(rf.predict(x_fert)[0])
-
-        # Counterfactual C: Full Climate-Smart Package
-        x_both = x_base.copy()
-        x_both["irrigated"] = 1
-        x_both["inorganic"] = 1
-        x_both["protected"] = 1
-        pred_both = float(rf.predict(x_both)[0])
-
-        # 2. KNN Retrieval: Find 3 closest matching real surveyed plots
-        _, indices = knn.kneighbors(x_base, n_neighbors=3)
-        if ref_df is not None:
-            ref_df = ref_df.loc[:, ~ref_df.columns.duplicated()]
-        matched = ref_df.iloc[indices[0]]
-
-        def _val(row, key, default=0):
-            if key not in row:
-                return default
-            v = row[key]
-            if hasattr(v, "iloc"):
-                v = v.iloc[0]
-            elif isinstance(v, (list, np.ndarray)) and len(v) > 0:
-                v = v[0]
-            return v
-
-        evidence_rows = []
-        for p_idx, m_row in matched.iterrows():
-            m_irrig = "Yes" if int(_val(m_row, "irrigated", 0)) == 1 else "No"
-            m_fert = "Yes" if int(_val(m_row, "inorganic", 0)) == 1 else "No"
-            y_val = float(_val(m_row, "yield_kg_ha", 0.0))
-            dist_name = str(_val(m_row, "district", d))
-            year_val = _val(m_row, "year", 2022)
-            season_val = str(_val(m_row, "season", "A"))
-            evidence_rows.append(f"* **Survey Plot #{p_idx} ({dist_name}, SAS {year_val} {season_val}):** Measured Harvest = `{y_val:.0f} kg/ha` (Irrigated: `{m_irrig}`, Fertilizer: `{m_fert}`)")
-        evidence_text = "\n".join(evidence_rows)
-
-    else:
-        pred_base = usual_y
-        pred_irrig = usual_y + 365.3
-        pred_fert = usual_y + 524.1
-        pred_both = usual_y + 889.4
-        evidence_text = "* Empirical benchmark fit on 28,042 surveyed Season A/B plots."
-
-    price = p["price"]
-    uplift_kg = pred_both - pred_base
-    extra_rev = uplift_kg * price
-
+    pkg = plot_package(p["usual_yield"])
+    price = p.get("price")
+    price_line = (
+        f"{price:.0f} RWF/kg" if price is not None else "no WFP maize price for this district"
+    )
     if lang == "rw":
-        return f"""### 🧪 Igereranya ry'Umusaruro Rikozwe na Model ya RandomForest — {d}
-*Model yatojwe ku mirima nyayo 28,042 y'Ubushakashatsi bwa NISR SAS.*
+        return f"""### Umusaruro w'ibigori — itandukaniro rya 2022, si isarura rya 2026 — {d}
 
-| Imiterere y'Umurima (Intervention Package) | Umusaruro Witezwe ($kg/ha$) | Impinduka ($kg/ha$) | Inyungu ($RWF/ha$) |
+Imirima **{N_PLOTS_SIM_2022A}** y'ibigori mu gihembwe A cya 2022. Tuvana umusaruro usanzwe w'aka karere, noneho twongeraho itandukaniro ry'imirima yahijwe cyangwa yafashwe ifumbire **mu karere kamwe**. Si Random Forest. Si isarura rya 2026.
+
+| Uburyo | kg/ha | Impinduka | Ku giciro cy'isoko |
 | :--- | :---: | :---: | :---: |
-| **Umusaruro usanzwe (Baseline)** | `{pred_base:.0f}` | — | — |
-| **Hiyongereyeho Kuhira gusa** | `{pred_irrig:.0f}` | `+{pred_irrig - pred_base:+.0f}` | `+{(pred_irrig - pred_base) * price:,.0f} RWF` |
-| **Hiyongereyeho Ifumbire (DAP/Urea)** | `{pred_fert:.0f}` | `+{pred_fert - pred_base:+.0f}` | `+{(pred_fert - pred_base) * price:,.0f} RWF` |
-| **Ikoranabuhanga ryose (Kuhira + Ifumbire + Amaterasi)** | **`{pred_both:.0f}`** | **`+{uplift_kg:+.0f}`** | **`+{extra_rev:,.0f} RWF`** |
+| Umusaruro usanzwe w'aka karere | `{pkg['baseline_kg_ha']:.0f}` | — | — |
+| + kuhira | `{pkg['with_irrigation_kg_ha']:.0f}` | `{pkg['irrigation_kg_ha']:+.0f}` | {_rwf(p, pkg['irrigation_kg_ha'])} |
+| + ifumbire y'amabuye | `{pkg['with_inorganic_kg_ha']:.0f}` | `{pkg['inorganic_kg_ha']:+.0f}` | {_rwf(p, pkg['inorganic_kg_ha'])} |
+| + ifumbire y'imborera | `{pkg['with_organic_kg_ha']:.0f}` | `{pkg['organic_kg_ha']:+.0f}` | {_rwf(p, pkg['organic_kg_ha'])} |
+| kuhira + ifumbire y'amabuye | `{pkg['with_irrigation_and_inorganic_kg_ha']:.0f}` | `{(pkg['irrigation_kg_ha'] + pkg['inorganic_kg_ha']):+.0f}` | {_rwf(p, pkg['irrigation_kg_ha'] + pkg['inorganic_kg_ha'])} |
 
-#### 💵 Inyungu y'Amafaranga ku Musaruro:
-* Ku giciro cy'isoko cya **{price:.0f} RWF/kg**, umuhinzi yunguka **+{extra_rev:,.0f} RWF kuri buri hegitari** (cg **+{extra_rev * 0.5:,.0f} RWF** kuri hegitari 0.5).
+Amaterasi ntiyongerewe nk'inyungu: mu 2022 imirima irinzwe yari hasi ({pkg['protected_kg_ha']:+.0f} kg/ha), kubera ko akenshi iri ku misozi.
 
-#### 🔍 Ibihamya by'Imirima Nyayo ya SAS (KNN Matched Plots):
-{evidence_text}
+Igiciro: **{price_line}**.
 
-👉 *[Kanda hano ugereranye mu buryo bwimbitse muri Simulator](?page=simulator)*"""
-    else:
-        return f"""### 🧪 Machine Learning Plot-Level Yield Inference (RandomForest) — {d}
-*Trained on 28,042 validated plot microdata records from NISR Seasonal Agriculture Surveys.*
+👉 [Simulator](?page=simulator) ikoresha amategeko amwe ku buso bw'uturere."""
 
-| Agronomic Intervention Package | Projected Yield ($kg/ha$) | Net Uplift ($kg/ha$) | Gross Revenue Uplift ($RWF/ha$) |
+    return f"""### Maize yield gaps from 2022 — not a 2026 harvest — {d}
+
+**{N_PLOTS_SIM_2022A}** Season A 2022 maize plots. Start from this district's usual yield, then add the within-district gap for irrigation or fertilizer. Same numbers as the Yield Simulator. Not a Random Forest forecast.
+
+| Package | kg/ha | Change | At latest maize price |
 | :--- | :---: | :---: | :---: |
-| **Current Baseline District Practice** | `{pred_base:.0f}` | — | — |
-| **Supplementary Irrigation Alone** | `{pred_irrig:.0f}` | `+{pred_irrig - pred_base:+.0f}` | `+{(pred_irrig - pred_base) * price:,.0f} RWF` |
-| **Balanced DAP & Urea Fertilizer** | `{pred_fert:.0f}` | `+{pred_fert - pred_base:+.0f}` | `+{(pred_fert - pred_base) * price:,.0f} RWF` |
-| **Full Climate-Smart Package (Irrigation + Fertilizer + Soil)** | **`{pred_both:.0f}`** | **`+{uplift_kg:+.0f}`** | **`+{extra_rev:,.0f} RWF`** |
+| District usual yield | `{pkg['baseline_kg_ha']:.0f}` | — | — |
+| + irrigation | `{pkg['with_irrigation_kg_ha']:.0f}` | `{pkg['irrigation_kg_ha']:+.0f}` | {_rwf(p, pkg['irrigation_kg_ha'])} |
+| + inorganic fertilizer | `{pkg['with_inorganic_kg_ha']:.0f}` | `{pkg['inorganic_kg_ha']:+.0f}` | {_rwf(p, pkg['inorganic_kg_ha'])} |
+| + organic fertilizer | `{pkg['with_organic_kg_ha']:.0f}` | `{pkg['organic_kg_ha']:+.0f}` | {_rwf(p, pkg['organic_kg_ha'])} |
+| irrigation + inorganic | `{pkg['with_irrigation_and_inorganic_kg_ha']:.0f}` | `{(pkg['irrigation_kg_ha'] + pkg['inorganic_kg_ha']):+.0f}` | {_rwf(p, pkg['irrigation_kg_ha'] + pkg['inorganic_kg_ha'])} |
 
-#### 💵 Economic Value & Gross Margin Uplift:
-* At the current market price of **{price:.0f} RWF/kg**, the model projects **+{extra_rev:,.0f} RWF/ha** in additional gross crop revenue (or **+{extra_rev * 0.5:,.0f} RWF** for a 0.5 ha smallholder plot).
+Terracing is **not** added as a gain: protected plots yielded **{pkg['protected_kg_ha']:+.0f} kg/ha** in the same district in 2022 (likely steeper land).
 
-#### 🔍 Empirical Case-Based Evidence (KNN Matched Real NISR Plots):
-{evidence_text}
+Price used: **{price_line}**.
 
-👉 *[Explore interactive counterfactual sliders on the What-If Simulator](?page=simulator)*"""
+👉 The [Yield Simulator](?page=simulator) uses the same 2022 gaps on district *shares*."""
 
 
 def ai_drought_ml(p, lang="en"):
-    """Live inference using trained RandomForestClassifier on agroclimatic variables."""
-    _, d_bundle, _ = get_models()
+    """Same water screen as the alert map. Does not pay NAIS."""
     d = p["district"]
-
-    if d_bundle is not None:
-        clf = d_bundle["model"]
-        feats = d_bundle["features"]
-        x_clim = pd.DataFrame([{
-            "rain_diff_pct": p["rain_pct"],
-            "water_balance_mm": p["water_week"],
-            "irrigated_pct": p["irrigated_pct"],
-            "concern_pct": p["concern_pct"],
-            "etc_mm": p["etc_week"],
-        }])[feats]
-        probs = clf.predict_proba(x_clim)[0]
-        prob_stable = probs[0] * 100.0
-        prob_watch = probs[1] * 100.0
-        prob_crisis = probs[2] * 100.0
-    else:
-        prob_crisis = 45.0 if p["rain_pct"] <= -15.0 else 15.0
-        prob_watch = 40.0
-        prob_stable = 100.0 - prob_crisis - prob_watch
-
-    is_triggered = (prob_crisis >= 30.0) or (p["water_week"] <= -10.0 and p["rain_pct"] <= -15.0)
-    status_label = "AUTOMATED PARAMETRIC PAYOUT TRIGGERED (ACTIVE)" if is_triggered else ("ELEVATED RISK - MONITORING" if prob_watch >= 35.0 else "NORMAL MOISTURE RISK")
-    status_rw = "UBWISHINGIZI BWAREKURA INDISHYI BYIHUSE" if is_triggered else ("IBYAGO BY'AMAPFA BIRAHARI - KUGENZURA" if prob_watch >= 35.0 else "IKIRERE GITEKANYE")
-
+    screen = drought_screen(p["rain_pct"], p["water_week"], p["irrigated_pct"], p["week_mm"])
+    flag = "Yego — icyuho cy'amazi" if screen["cropwatch_water_flag"] else "Oya — nta burira bwo kuhira"
+    flag_en = "Yes — irrigation / dry-start flag" if screen["cropwatch_water_flag"] else "No — not an irrigation alert"
     if lang == "rw":
-        return f"""### 🛡️ Isuzuma ry'Ibyago by'Ikirere Rikozwe na Model ya RandomForest — {d}
-*Model yatojwe ku mateka y'ikirere n'ibipimo by'amazi by'imvura na Open-Meteo.*
+        return f"""### Icyuho cy'amazi — {d} (si indishyi ya NAIS)
 
-| Ikiciro cy'Ibyago | Amahirwe y'Ibyago (Predicted Probability) | Ubusobanuro bwa Tekiniki |
-| :--- | :---: | :--- |
-| **Severe Deficit (Ikibazo gikomeye)** | `{prob_crisis:.1f}%` | Icyuho cy'amazi kirenga −10 mm mu cyumweru |
-| **Watch Window (Kwitonda)** | `{prob_watch:.1f}%` | Imvura iri hasi ya 10% ugereranyije n'isanzwe |
-| **Stable (Ubuhehere buhagije)** | `{prob_stable:.1f}%` | Ubutaka bufite amazi ahagije ku bihingwa |
+Amategeko amwe n'ikarita y'iburira:
 
-* **Urugero rw'Ubwishingizi bwa NAIS (Tekana Urishingiwe):** **{status_rw}**
+* Imvura igeze: **{p['rain_pct']:+.0f}%** ugereranyije n'isanzwe (Open-Meteo vs CHIRPS 2018–2025)
+* Iminsi 7: **{p['week_mm']:.0f} mm**
+* Imiti yahijwe mu 2022: **{p['irrigated_pct']:.1f}%**
+* Icyumweru $P_e - ET_c$: **{p['water_week']:+.1f} mm**
+* Icyiciro: **{screen['level']}**
+* Iburira rya CropWatch: **{flag}**
 
-#### 📋 Icyemezo n'Uburyo bwo Kwishyura:
-1. **Guhita wemererwa Indishyi:** Niba amapfa arengeje igipimo cy'amahirwe cya 30%, amakoperative yishinganishije aba yemerewe indishyi z'igihombo.
-2. **Kwishyurira kuri Mobile Money:** Indishyi zikwirakwizwa kuri MTN MoMo cyangwa Airtel Money y'umuhinzi kugira ngo abone amafaranga yo gusubira mu murima.
+**NAIS / Tekana:** CropWatch **ntishyura** indishyi kandi ntihuza na SONARWA. Niba ushaka ubwishingizi, gana umurenge cyangwa koperative **mbere** y'igihembwe.
 
-👉 *[Reba ikarita y'igihugu y'Iburira n'Ibyago by'Amapfa](?page=alerts)*"""
-    else:
-        return f"""### 🛡️ Climate Risk Classification & Parametric Insurance (RandomForest) — {d}
-*Model trained on longitudinal agrometeorological deficit data and CHIRPS precipitation records.*
+👉 [Ikarita y'iburira](?page=alerts)"""
 
-| Moisture Stress Risk Tier | Predicted Probability | Technical Agronomic Threshold |
-| :--- | :---: | :--- |
-| **Severe Deficit / Drought Crisis** | `{prob_crisis:.1f}%` | Crop water balance $P_e - ET_c \\le -10$ mm/week |
-| **Elevated Deficit Watch Window** | `{prob_watch:.1f}%` | Rainfall anomaly $\\le -10\\%$ below seasonal norm |
-| **Adequate Soil Moisture (Stable)** | `{prob_stable:.1f}%` | Precipitation matches atmospheric demand |
+    return f"""### Water-stress screen — {d} (not an NAIS payout)
 
-* **National Agricultural Insurance Scheme (NAIS) Status:** **{status_label}**
+Same rule as the alert map:
 
-#### 📋 Automated Payout Decision & Settlement:
-1. **Parametric Index Settlement:** Payout is triggered when model crisis probability exceeds 30.0% alongside confirmed agrometeorological deficit.
-2. **Mobile Money Disbursement:** Automated settlement directly to registered farmers via MTN MoMo or Airtel Money to finance immediate re-planting or fodder.
+* Rain so far: **{p['rain_pct']:+.0f}%** vs usual (Open-Meteo this season vs CHIRPS 2018–2025)
+* Next 7 days: **{p['week_mm']:.0f} mm**
+* Irrigated plots in 2022: **{p['irrigated_pct']:.1f}%**
+* This week $P_e - ET_c$: **{p['water_week']:+.1f} mm**
+* Screen: **{screen['level']}**
+* CropWatch flag: **{flag_en}**
 
-👉 *[View 30-District Early Warning Map & Alert Dashboard](?page=alerts)*"""
+**NAIS / Tekana:** CropWatch **does not** trigger or pay insurance. Enrol through the sector or a cooperative **before** the season.
+
+👉 [Alert map](?page=alerts)"""
 
 
 def ai_price_ml(p, lang="en"):
-    """Live inference using trained Autoregressive RidgeCV on 2,728 WFP market observations."""
-    _, _, p_bundle = get_models()
+    """Latest WFP maize price only. No 30/60/90-day invented forecast."""
     d = p["district"]
-    cur_price = p["price"]
-    date_str = p["price_date"]
-
-    if p_bundle is not None:
-        model = p_bundle["model"]
-        month = 10
-        m_sin = float(np.sin(2 * np.pi * month / 12.0))
-        m_cos = float(np.cos(2 * np.pi * month / 12.0))
-        x_price = pd.DataFrame([{
-            "month_sin": m_sin,
-            "month_cos": m_cos,
-            "lag1": float(cur_price),
-            "lag2": float(cur_price * 0.98),
-            "lag3": float(cur_price * 0.95),
-        }])[p_bundle["features"]]
-        proj_30d = float(model.predict(x_price)[0])
-        proj_60d = proj_30d * 1.042
-        proj_90d = proj_30d * 1.085
-    else:
-        proj_30d = cur_price * 1.03
-        proj_60d = cur_price * 1.07
-        proj_90d = cur_price * 1.12
-
-    pics_cost_per_kg = 28.0
-    net_storage_gain_90d = (proj_90d - cur_price) - pics_cost_per_kg
-
+    cur = p.get("price")
+    nat = p.get("national_price")
+    date_str = p.get("price_date") or "—"
+    if cur is None and nat is None:
+        body = "Nta giciro cy'ibigori cya WFP kuri aka karere." if lang == "rw" else "No WFP maize price row for this district."
+        return f"### WFP maize price — {d}\n\n{body}\n\n👉 [Prices](?page=watch)"
+    local = f"{cur:.0f} RWF/kg" if cur is not None else "—"
+    national = f"{nat:.0f} RWF/kg" if nat is not None else "—"
+    vs = ""
+    if cur is not None and nat is not None:
+        vs = f"{cur - nat:+.0f} RWF/kg vs national"
     if lang == "rw":
-        return f"""### 💰 Iteganyamiterere ry'Ibiciro by'Ibigori bya WFP (Autoregressive RidgeCV) — {d}
-*Model yatojwe ku bipimo 2,728 by'amasoko ya WFP kuva mu 2010 kugeza 2026 ($R^2 = 0.705$).*
+        return f"""### Igiciro cy'ibigori (WFP) — {d}
 
-| Igihe cy'Iteganyamiterere | Igiciro Giteganyijwe ($RWF/kg$) | Impinduka ku Giciro cy'Ubu |
-| :--- | :---: | :---: |
-| **Ubu mu Isoko ({date_str})** | **`{cur_price:.0f} RWF`** | — |
-| **Iminsi 30 iri imbere** | `{proj_30d:.0f} RWF` | `+{proj_30d - cur_price:+.0f} RWF/kg` |
-| **Iminsi 60 iri imbere** | `{proj_60d:.0f} RWF` | `+{proj_60d - cur_price:+.0f} RWF/kg` |
-| **Iminsi 90 iri imbere (Umusaruro ushize)** | **`{proj_90d:.0f} RWF`** | **`+{proj_90d - cur_price:+.0f} RWF/kg`** |
+* Aka karere: **{local}** ({date_str})
+* Igihugu: **{national}**
+* {vs}
 
-#### 📦 Inama yo Guhunika mu Mifuka ya PICS:
-* **Ikiguzi cy'Umufuka wa PICS:** `~28 RWF/kg`
-* **Inyungu Ntukuru yo Guhunika Iminsi 90:** **`+{net_storage_gain_90d:+.0f} RWF/kg`**
-* **Inama:** {'Guhunika mu mifuka ya PICS biratanga inyungu ifatika kuko ibiciro bizamuka cyane mu mezi ari imbere.' if net_storage_gain_90d > 10 else 'Kugurisha ubu birakwiye niba ukeneye amafaranga y\'inguzanyo ako kanya.'}
+Nta iteganyagihe ry'iminsi 30/60/90. CropWatch ntiyihangira ibiciro bizaza. PICS irinda imungu; ntiyongera igiciro.
 
-👉 *[Reba ibiciro by'amasoko n'ubucuruzi bwa UN Comtrade](?page=watch)*"""
-    else:
-        return f"""### 💰 WFP Grain Market Price Forecaster (Autoregressive RidgeCV) — {d}
-*Trained on 2,728 longitudinal retail grain market observations from WFP VAM ($R^2 = 0.705$).*
+👉 [Amasoko](?page=watch)"""
+    return f"""### Latest WFP maize price — {d}
 
-| Forecast Horizon | Projected Maize Price ($RWF/kg$) | Delta vs. Current Retail |
-| :--- | :---: | :---: |
-| **Current Baseline ({date_str})** | **`{cur_price:.0f} RWF`** | — |
-| **+30 Days Forward** | `{proj_30d:.0f} RWF` | `+{proj_30d - cur_price:+.0f} RWF/kg` |
-| **+60 Days Forward** | `{proj_60d:.0f} RWF` | `+{proj_60d - cur_price:+.0f} RWF/kg` |
-| **+90 Days Forward (Lean Season Peak)** | **`{proj_90d:.0f} RWF`** | **`+{proj_90d - cur_price:+.0f} RWF/kg`** |
+* This district: **{local}** ({date_str})
+* National: **{national}**
+* {vs}
 
-#### 📦 Hermetic PICS Bag Storage Arbitrage Analysis:
-* **Hermetic PICS Bag Amortized Cost:** `28 RWF/kg`
-* **Net Storage Premium at 90 Days:** **`+{net_storage_gain_90d:+.0f} RWF/kg`**
-* **Recommendation:** {'Strong arbitrage window: Storing cleaned grain in triple-layer hermetic PICS bags for 90 days yields positive returns over immediate distress farmgate selling.' if net_storage_gain_90d > 10 else 'Market spread is tight; immediate sale is acceptable if short-term liquidity is needed.'}
+There is **no** 30/60/90-day price forecast in this app. CropWatch does not invent future prices. PICS bags cut storage loss; they do not raise the market price.
 
-👉 *[Explore historical commodity prices and export flows](?page=watch)*"""
+👉 [Market desk](?page=watch)"""
 
 
 def ai_irrigation(p, lang="en"):
     d = p["district"]
     deficit = p["deficit_mm"]
     liters = p["liters_ha"]
-    _k, en_kit, rw_kit = kit_for_hectares(0.5)
-
+    plan = ssit_plan(0.5, "marsh")
+    kit = plan["name_rw"] if lang == "rw" else plan["name_en"]
     if lang == "rw":
-        return f"""### 💧 Inama yo Kuhira Imyaka binyuze muri SSIT — {d}
+        return f"""### Kuhira — {d}
 
-* **Icyuho cy'Amazi cy'Iki Cyumweru:** `{deficit:.1f} mm`
-* **Ingano y'Amazi Akenewe:** `{liters:,.0f} L/ha` (cg `{liters * 0.5:,.0f} L` kuri hegitari 0.5)
-* **Pompi Ikwiye (SSIT Subsidy 50%):** **{rw_kit}**
+* Icyuho cy'icyumweru: **{deficit:.1f} mm** ({liters:,.0f} L/ha; {liters * 0.5:,.0f} L kuri 0.5 ha)
+* Pompi y'urugero kuri 0.5 ha ku gishanga: **{kit}**
+* Igiciro cyateganyijwe: **{plan['indicative_cost_rwf']:,.0f} RWF** — umuhinzi **{plan['farmer_rwf']:,.0f}**, nkunganire 50% **{plan['subsidy_rwf']:,.0f}** (si igiciro cya MINAGRI)
 
-#### 📋 Ingengabihe yo Kuhira:
-1. **Igihe cyo Kuhira:** Kuhira mu gitondo cya kare (mbere ya saa 8:30) cyangwa nimugoroba izuba rirenze kugira ngo amazi atarengana n'umuyaga cyangwa ubushyuhe.
-2. **Kuhira mu Ntera:** Koresha uburyo bwa drip bujyana amazi ku mizi y'ikigori gusa.
-3. **Nkunganire ya MINAGRI (50%):** Leta yishyura 50% by'ikiguzi cy'ibikoresho byo kuhira binyuze muri gahunda ya SSIT."""
-    else:
-        return f"""### 💧 Smart Irrigation Schedule & SSIT Sizing — {d}
+Kuhira mu gitondo cyangwa nimugoroba. Hindura inkomoko y'amazi kuri [SSIT](?page=simulator)."""
+    return f"""### Irrigation this week — {d}
 
-* **Calculated Atmospheric Deficit ($ET_c - P_e$):** `{deficit:.1f} mm`
-* **Irrigation Water Requirement:** `{liters:,.0f} L/ha` (or `{liters * 0.5:,.0f} L` for a 0.5 ha smallholder plot)
-* **Recommended Equipment (50% SSIT Subsidy):** **{en_kit}**
+* Weekly gap: **{deficit:.1f} mm** ({liters:,.0f} L/ha; {liters * 0.5:,.0f} L on 0.5 ha)
+* Example kit for 0.5 ha from a marsh: **{kit}**
+* Indicative cost: **{plan['indicative_cost_rwf']:,.0f} RWF** — farmer **{plan['farmer_rwf']:,.0f}**, 50% co-share **{plan['subsidy_rwf']:,.0f}** (not a MINAGRI quote)
 
-#### 📋 Operational Field Scheduling:
-1. **Application Window:** Irrigate between 06:00–08:30 or after 17:00 to minimize evaporative losses ($ET_0$).
-2. **Delivery Architecture:** Prioritize pressurized drip or low-pressure gated pipe to concentrate moisture in the root zone.
-3. **MINAGRI 50% Co-Share:** Smallholders qualify for a 50% capital subsidy on certified solar and motor pumps via the local RAB sector desk."""
+Water early morning or evening. Change water source on the [SSIT tab](?page=simulator)."""
 
 
 def ai_soil(p, lang="en"):
@@ -730,22 +576,24 @@ def ai_pests(p, lang="en"):
 def ai_sms(p, lang="en"):
     d = p["district"]
     deficit = p["deficit_mm"]
-    liters = p["liters_ha"]
-
     if lang == "rw":
-        sms = f"[CropWatch] {d}: Icyuho cy'imvura {p['rain_pct']:.0f}%. Amazi akenewe: {deficit:.1f}mm ({liters:,.0f} L/ha). Koresha pompi ya SSIT. Amaterasi akenewe ku misozi. Kanda *801#"
+        sms = f"[CropWatch] {d}: imvura {p['rain_pct']:+.0f}% ku isanzwe. Icyuho {deficit:.0f}mm. Reba umurenge. Si ubutumwa bwa MINAGRI."
     else:
-        sms = f"[CropWatch] {d}: Rain deficit {p['rain_pct']:.0f}%. Water gap: {deficit:.1f}mm ({liters:,.0f} L/ha). Deploy SSIT pumps now. Terracing needed on slopes. Call *801#"
-
+        sms = f"[CropWatch] {d}: rain {p['rain_pct']:+.0f}% vs usual. Gap {deficit:.0f}mm. Ask the sector. Not a MINAGRI text."
     sms = sms[:160]
-
-    return f"""### 📱 160-Character Rural SMS & USSD Broadcast Engine
+    note = (
+        "Iyi ni **inyandiko**. CropWatch **ntikohereza** SMS kandi ntihuza na *801#."
+        if lang == "rw"
+        else "This is a **draft**. CropWatch **does not send** SMS and is not connected to *801#."
+    )
+    return f"""### SMS draft (not sent)
 
 ```text
 {sms}
 ```
-* **Character Count:** `{len(sms)} / 160` (Standard GSM-7 Encoding compatible)
-* **Target Channels:** MTN Rwanda & Airtel Mobile Networks, Sector SMS Gateway, USSD `*801#` Push Menu."""
+{len(sms)} / 160 characters.
+
+{note}"""
 
 
 # ==============================================================================
@@ -856,20 +704,22 @@ def ai_district_profile(p, lang="en"):
     rain_pct = p["rain_pct"]
     irrig = p["irrigated_pct"]
     prot = p["protected_pct"]
-    price = p["price"]
+    price = p.get("price")
+    price_txt = f"{price:.0f} RWF/kg" if price is not None else "—"
     alert = p["alert"]
-    _k, en_kit, rw_kit = kit_for_hectares(0.5)
+    plan = ssit_plan(0.5, "marsh")
+    en_kit, rw_kit = plan["name_en"], plan["name_rw"]
 
     if lang == "rw":
         return f"""### 🏛️ Incamake y'Ikoranabuhanga n'Ubuhinzi muri {d}
 
 * **Uko Ikirere Cyifashe (Alert Status):** `{alert.upper()}`
-* **Icyuho cy'Imvura (Rainfall Anomaly):** `{rain_pct:+.0f}%` (ugeranyije na 1981–2025)
+* **Icyuho cy'Imvura (Rainfall Anomaly):** `{rain_pct:+.0f}%` (Open-Meteo vs CHIRPS 2018–2025)
 * **Imvura iteganyijwe mu minsi 7:** `{p['week_mm']:.0f} mm`
 * **Ubuso buhirwa mu mirima ya SAS:** `{irrig:.1f}%`
 * **Imirima ifite amaterasi n'ingamba zo kurwanya isuri:** `{prot:.1f}%`
 * **Umusaruro usanzwe w'ibigori (SAS baseline):** `{usual_y:.0f} kg/ha`
-* **Igiciro cy'Ibigori ku Isoko (WFP):** `{price:.0f} RWF/kg`
+* **Igiciro cy'Ibigori ku Isoko (WFP):** {price_txt}
 * **Icyuho cy'Amazi cy'Iki Cyumweru:** `{p['deficit_mm']:.1f} mm` (`{p['liters_ha']:,.0f} L/ha`)
 * **Pompi Ikwiye muri SSIT:** **{rw_kit}**
 
@@ -878,12 +728,12 @@ def ai_district_profile(p, lang="en"):
         return f"""### 🏛️ Comprehensive Agrometeorological Profile: {d} District
 
 * **Current Operational Status:** `{alert.upper()}`
-* **Seasonal Rainfall Anomaly:** `{rain_pct:+.0f}%` (relative to 1981–2025 climatological baseline)
+* **Seasonal Rainfall Anomaly:** `{rain_pct:+.0f}%` (Open-Meteo vs CHIRPS 2018–2025)
 * **7-Day Numerical Forecast:** `{p['week_mm']:.0f} mm` via Open-Meteo & Meteo Rwanda
 * **Irrigated Plot Share (NISR SAS):** `{irrig:.1f}%`
 * **Soil Conservation Protection Share:** `{prot:.1f}%`
 * **Historical Baseline Maize Yield:** `{usual_y:.0f} kg/ha`
-* **Prevailing Market Price (WFP VAM):** `{price:.0f} RWF/kg`
+* **Prevailing Market Price (WFP VAM):** {price_txt}
 * **Immediate Weekly Moisture Deficit:** `{p['deficit_mm']:.1f} mm` (`{p['liters_ha']:,.0f} L/ha`)
 * **Recommended Smallholder Equipment:** **{en_kit}**
 
@@ -1196,101 +1046,63 @@ def ai_spacing(p, lang="en"):
 
 
 def ai_storage(p, lang="en"):
-    price = p["price"]
-    is_rw = (lang == "rw")
-    if is_rw:
-        return f"""### 📦 Ubuhuniki bw'Ibinyampeke mu Mifuka ya PICS no Kurinda Igiciro
-
-1. **Kwanika Kugeza ku Buhehere bwa 13.5%:**
-   * Mbere yo guhunika, ibigori bigomba kwanikwa bikagera munsi ya **13.5% z'ubuhehere**. Ibi birinda uduhumyo twa **Aflatoxin** twangiza ubuzima.
-
-2. **Gukoresha Imifuka ya PICS (Purdue Improved Crop Storage):**
-   * Imifuka ya PICS igizwe n'ibirahure 2 by'amashashi y'umwimerere n'umufuka w'inyuma.
-   * Iyo ifunzwe neza n'imigozi, umwuka wa ogisijeni urashira maze imungu (**weevils / Sitophilus zeamais**) zigapfa mu minsi mike nta muti w'uburozi ukoreshejwe.
-
-3. **Inyungu y'Igiciro (Market Arbitrage):**
-   * Igiciro cy'isoko ubu kiri kuri **{price:.0f} RWF/kg**. Mu gihe cy'isarura (Gashyantare), igiciro kiragwa (kuri 320–350 RWF).
-   * Guhunika mu mifuka ya PICS mu mezi 3–5 bituma ugurisha muri Gicurasi–Nyakanga ku giciro kiri hejuru ya **480–550 RWF/kg** (+35% y'inyungu)."""
+    price = p.get("price")
+    if price is None:
+        price = p.get("national_price")
+    if price is None:
+        price_line_en = "No WFP maize kg row for this district in the latest table (through 15 Mar 2026)."
+        price_line_rw = "Nta umurongo wa WFP w'ibigori (kg) kuri iki karere (kugeza 15 Werurwe 2026)."
     else:
-        return f"""### 📦 Hermetic PICS Bag Storage & Grain Market Arbitrage
+        when = p.get("price_date") or "latest"
+        price_line_en = f"Latest WFP VAM maize for {p['district']}: **{price:.0f} RWF/kg** ({when}). This is a market price, not a farm-gate promise."
+        price_line_rw = f"Igiciro cya WFP VAM kuri {p['district']}: **{price:.0f} RWF/kg** ({when}). Ni igiciro cy'isoko, si icyo ku murima."
+    if lang == "rw":
+        return f"""### Ubuhuniki (PICS) — inama, si iteganyijwe ry'igiciro
 
-1. **Moisture Threshold (<13.5% MC):**
-   * Dry shelled maize grain down to <= 13.5% moisture content prior to bagging. Grains exceeding 14% develop fungal molds producing carcinogenic **aflatoxins**.
+1. **Ubuhehere:** kwanika ibigori kugeza munsi ya **13.5%** mbere yo guhunika (kurwanya aflatoxin).
+2. **Imifuka ya PICS:** ifunga umwuka; imungu zirapfa nta muti w'uburozi.
+3. **Igiciro:** {price_line_rw} CropWatch **ntiteganya** igiciro cy'amezi 3 cyangwa 6.
 
-2. **PICS (Purdue Improved Crop Storage) Triple-Layer Technology:**
-   * Two inner high-density polyethylene liners enclosed in a woven polypropylene outer bag create a hermetic seal.
-   * Insects, larvae, and weevils (*Sitophilus zeamais*) consume remaining oxygen within 5–10 days and die of asphyxiation, preserving grain for 12+ months without synthetic organophosphate dusts.
+Reba Open Data ku mahoro y'ibigori (HS 1005) kugeza 2025."""
+    return f"""### After harvest — PICS storage (no price forecast)
 
-3. **Price Arbitrage Potential:**
-   * Prevailing maize price in {p['district']} is **{price:.0f} RWF/kg**. At peak harvest in February, prices historically drop to 320–360 RWF/kg.
-   * Hermetic storage allows smallholders to defer sales until the seasonal window of May–July when prices rise to **480–550 RWF/kg**, yielding an extra **35–45% net margin**."""
+1. **Moisture:** dry maize to **≤13.5%** before bagging (aflatoxin risk above that).
+2. **PICS bags:** hermetic layers starve weevils without pesticide dust.
+3. **Price:** {price_line_en} CropWatch does **not** forecast a May–July price.
+
+Formal maize exports (HS 1005) are on Open Data through 2025. There is no 2026 export file."""
 
 
 def ai_ssit_subsidy(p, lang="en"):
-    _k, en_kit, rw_kit = kit_for_hectares(0.5)
-    is_rw = (lang == "rw")
-    if is_rw:
-        return f"""### 💧 Gahunda ya Leta ya SSIT yo Kunganira Abahinzi ku Kuri 50%
+    plan = ssit_plan(0.5, "marsh")
+    kit = plan["name_rw"] if lang == "rw" else plan["name_en"]
+    if lang == "rw":
+        return f"""### SSIT 50% — urugero, si igiciro cya MINAGRI
 
-Gahunda ya **Small-Scale Irrigation Technology (SSIT)** iyobowe na MINAGRI na RAB igamije gufasha abahinzi kubona ibikoresho byo kuhira:
+MINAGRI ivuga nkunganire ya **50%** ku bikoresho byemewe (hegitari ~0.1–10). CropWatch **ntishyura** kandi nticyemeza umushinga.
 
-* **Uruhare rwa Leta:** Leta yishyura **50% by'igiciro cy'ibikoresho byo kuhira** ku buso bwa hegitari 0.1 kugeza kuri hegitari 10.
-* **Ibikoresho Bihabwa Nkunganire:**
-  1. Pompi z'amashanyarazi n'iz'imirasire y'izuba (Solar Pumps).
-  2. Pompi zikoresha moteri ya essence cyangwa mazutu (Portable Motor Pumps 5.5 HP).
-  3. Uburyo bugezweho bwo kuhira bwa Drip Irrigation Kits na Rain-Guns.
-  4. Ibitembo (PVC pipes) n'ibidendezi bifata amazi (dam sheets).
-* **Pompi ikwiye kuri {p['district']}:** **{rw_kit}**.
-* **Uko Basaba:**
-  1. Gana ushinzwe ubuhinzi mu Murenge (**Agronome w'Umurenge**).
-  2. Erekana icyangombwa cy'ubutaka cyangwa amasezerano yo gukodesha (byibura ari 20) n'aho amazi aherereye.
-  3. RAB ikora isuzuma ry'umushinga maze ukishyura 50% asigaye binyuze muri Banki."""
-    else:
-        return f"""### 💧 MINAGRI 50% Small-Scale Irrigation Technology (SSIT) Subsidy
+Urugero kuri **0.5 ha** ku gishanga muri {p['district']}:
+* Pompi: **{kit}**
+* Igiciro cyateganyijwe: **{plan['indicative_cost_rwf']:,.0f} RWF**
+* Umuhinzi (50%): **{plan['farmer_rwf']:,.0f} RWF**
+* Nkunganire (50%): **{plan['subsidy_rwf']:,.0f} RWF**
 
-The national **SSIT Facility** provides capital co-financing to de-risk on-farm irrigation investment:
+Saba ku murenge. Hindura ubuso n'inkomoko y'amazi kuri [Simulator](?page=simulator)."""
+    return f"""### SSIT 50% — planning figures, not a MINAGRI quote
 
-* **Subsidy Envelope:** MINAGRI covers **50% of total capital cost** for irrigation equipment packages on plots between 0.1 ha and 10 ha.
-* **Qualified Equipment Packages:**
-  1. Solar photovoltaic surface and submersible pumping systems (1.0–2.5 kW).
-  2. Portable four-stroke gasoline/diesel centrifugal motor pumps (5.5 HP).
-  3. Pressurized drip irrigation kits with sand/screen filtration.
-  4. Overhead impact sprinkler sets and high-pressure rain guns.
-  5. High-density polyethylene (HDPE) reservoir lining geomembranes.
-* **Recommended Package for {p['district']}:** **{en_kit}**.
-* **Application Pathway:**
-  1. Register with the Sector Agronomist (*Agronome w'Umurenge*).
-  2. Provide land tenure verification (>= 0.1 ha) and proximity to a certified water intake (river, marshland, retention pond).
-  3. Following technical inspection by RAB engineers, the smallholder deposits their 50% co-share into the designated commercial bank account, triggering equipment delivery and installation."""
+MINAGRI describes a **50%** co-share on approved kits (about 0.1–10 ha). CropWatch **does not** pay or approve applications.
+
+Example for **0.5 ha** from a marsh in {p['district']}:
+* Kit: **{kit}**
+* Indicative cost: **{plan['indicative_cost_rwf']:,.0f} RWF**
+* Farmer (50%): **{plan['farmer_rwf']:,.0f} RWF**
+* Subsidy (50%): **{plan['subsidy_rwf']:,.0f} RWF**
+
+Apply at the sector. Change size and water source on the [Simulator](?page=simulator)."""
 
 
 def ai_nais_insurance(p, lang="en"):
-    d = p["district"]
-    is_rw = (lang == "rw")
-    if is_rw:
-        return f"""### 🛡️ Ubwishingizi bw'Ubuhinzi bwa Leta (NAIS — Tekana Urishingiwe)
-
-Gahunda y'Ubwishingizi bw'Ubuhinzi n'Ubworozi (**National Agricultural Insurance Scheme - NAIS**) irengera abahinzi mu gihe cy'amapfa n'imyuzure:
-
-* **Inkunga ya Leta (40% Subsidy):** Leta ibinyujije muri MINAGRI yishyura **40% by'ikiguzi cy'ubwishingizi (premium)**, umuhinzi akishyura 60% gusa.
-* **Ibihingwa Byishingirwa:** Ibigori, umuceri, ibirayi, urusenda, amashaza, inka z'umukamo, n'ingurube.
-* **Uburyo Bwishingizi Bukora (Parametric Index):**
-  * Ubwishingizi bwa NAIS bushingiye ku bipimo bya satelite by'imvura n'ubushyuhe.
-  * Iyo muri {d} imvura iguye munsi y'ikigero kigenwe cy'amapfa (**rain deficit threshold**), indishyi itangwa ako kanya bitabaye ngombwa ko umukozi aza gusura umurima umwe ku wundi.
-* **Ibigo Byemewe by'Ubwishingizi:** Radiant Insurance, Prime Insurance, BK General Insurance, Sonarwa.
-* **Uko Ubwishingizi Bufatwa:** Gana koperative y'ubuhinzi cyangwa ushinzwe ubuhinzi mu Murenge mbere y'uko igihembwe gitangira."""
-    else:
-        return f"""### 🛡️ National Agricultural Insurance Scheme (NAIS — Tekana Urishingiwe)
-
-The national **NAIS Scheme** protects Rwandan farmers against severe climatic shocks:
-
-* **Government Premium Subsidy:** MINAGRI subsidizes **40% of the insurance premium**, leaving smallholders to cover only the remaining 60%.
-* **Covered Value Chains:** Hybrid maize, paddy rice, Irish potatoes, French beans, dairy cattle, and swine.
-* **Parametric Weather-Index Mechanism:**
-  * Rather than requiring lengthy on-site loss adjusters, NAIS relies on satellite-derived rainfall and soil moisture deficit indices.
-  * When satellite precipitation in {d} falls below verified biological threshold trigger points during flowering or grain-fill, insurance payouts are released automatically into smallholder mobile money accounts.
-* **Accredited Insurers:** Radiant Insurance, Prime Insurance, BK General Insurance, Sonarwa.
-* **Enrollment:** Through licensed agricultural cooperatives, MFI credit lines, or Sector Agronomist offices at seasonal planting onset."""
+    return ai_drought_ml(p, lang)
 
 
 def ai_district_compare(d1, d2, lang="en"):
@@ -1364,43 +1176,50 @@ Current agroclimatic status for {d} District (Season A 2026):
 
 
 def call_cloud_llm(prompt, profile, lang="en"):
+    global LAST_LLM_ERROR
+    LAST_LLM_ERROR = ""
     groq_key = secret("GROQ_API_KEY")
     gemini_key = secret("GEMINI_API_KEY") or secret("GOOGLE_API_KEY")
 
-    system_prompt = f"""You are the official CropWatch Rwanda ML Agronomic Copilot, an expert agricultural decision-support AI for Rwanda.
-Current Context for {profile['district']} District (Season A 2026):
-- Rainfall anomaly so far: {profile['rain_pct']:+.1f}% vs CHIRPS 8-year baseline
-- 7-day forecast rain: {profile['week_mm']:.1f} mm
-- Weekly crop water deficit: {profile['deficit_mm']:.1f} mm ({profile['liters_ha']:,.0f} L/ha)
-- Surveyed irrigation coverage: {profile['irrigated_pct']:.1f}%
-- Historical baseline yield: {profile['usual_yield']:.0f} kg/ha
-- Current WFP market price: {profile['price']:.0f} RWF/kg
-- Soil conservation protection: {profile['protected_pct']:.1f}%
+    price = profile.get("price")
+    price_txt = f"{price:.0f} RWF/kg" if price is not None else "no district maize price"
+    system_prompt = f"""You are CropWatch Rwanda. Write natural, grammatically correct sentences.
+Use ONLY the figures below. Do not invent, round, or add numbers. If a figure is missing, say it is not in the district table.
+Do not invent NAIS payouts, SMS sends, 2026 harvests, or sources. The app attaches verified citations after you.
 
-Guidelines:
-1. Provide authoritative, concise, and helpful agronomic advice specifically tailored to Rwandan agro-ecological zones and the selected district.
-2. If the user writes in Kinyarwanda, reply in fluent, natural Kinyarwanda. If in English, reply in English.
-3. Reference real Rwandan agricultural institutions (MINAGRI, RAB, NISR), programs (SSIT 50% subsidy, NAIS Tekana Urishingiwe insurance), and proven practices.
-4. Format responses cleanly with Markdown bullet points and bold highlights."""
+District: {profile['district']}
+Rain vs usual (Open-Meteo vs CHIRPS 2018-2025): {profile['rain_pct']:+.1f}%
+7-day rain: {profile['week_mm']:.1f} mm
+Weekly Pe-ETc: {profile['water_week']:+.1f} mm
+Irrigated plots SAS 2022: {profile['irrigated_pct']:.1f}%
+Usual maize yield: {profile['usual_yield']:.0f} kg/ha
+WFP maize: {price_txt}
+
+Rules: Kinyarwanda in, Kinyarwanda out. CropWatch does not pay insurance or send SMS. Yield gaps are Season A 2022 associations."""
 
     if groq_key:
-        try:
-            headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
-            payload = {
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0.3,
-                "max_tokens": 1024,
-            }
-            res = requests.post(GROQ_URL, headers=headers, json=payload, timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                return data["choices"][0]["message"]["content"]
-        except Exception:
-            pass
+        headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+        for model in GROQ_MODELS:
+            try:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 1024,
+                }
+                res = requests.post(GROQ_URL, headers=headers, json=payload, timeout=20)
+                if res.status_code == 200:
+                    data = res.json()
+                    return data["choices"][0]["message"]["content"]
+                LAST_LLM_ERROR = f"Groq {model}: HTTP {res.status_code}"
+                if res.status_code not in (400, 404):
+                    break
+            except Exception as err:
+                LAST_LLM_ERROR = f"Groq {model}: {err}"
+                break
 
     if gemini_key:
         try:
@@ -1411,31 +1230,110 @@ Guidelines:
                 ],
                 "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1024}
             }
-            res = requests.post(url, json=payload, timeout=10)
+            res = requests.post(url, json=payload, timeout=20)
             if res.status_code == 200:
                 data = res.json()
                 return data["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception:
-            pass
+            LAST_LLM_ERROR = f"Gemini {GEMINI_MODEL}: HTTP {res.status_code}"
+        except Exception as err:
+            LAST_LLM_ERROR = f"Gemini: {err}"
 
+    if not groq_key and not gemini_key:
+        LAST_LLM_ERROR = "No Groq or Gemini key. Put GROQ_API_KEY in .streamlit/secrets.toml (not the .example file)."
     return None
+
+
+def strip_evidence(text):
+    body = text or ""
+    for mark in ("\n---\n**Evidence**", "\n---\n**Ibinyabiziga**"):
+        if mark in body:
+            return body.split(mark)[0].rstrip()
+    return body.rstrip()
+
+
+def evidence_md(profile, lang="en"):
+    """Citations from project tables only — never invented by Groq."""
+    d = profile["district"]
+    price = profile.get("price")
+    if price is None:
+        price_line = (
+            "- WFP VAM: no maize kg row for this district in the latest table (through 15 Mar 2026)."
+            if lang != "rw"
+            else "- WFP VAM: nta umurongo w'ibigori (kg) kuri iki karere mu mbonerahamwe ya 15 Werurwe 2026."
+        )
+    else:
+        price_line = (
+            f"- WFP VAM maize: {price:.0f} RWF/kg ({profile.get('price_date') or 'latest'}). https://dataviz.vam.wfp.org/"
+            if lang != "rw"
+            else f"- Ibigori bya WFP VAM: {price:.0f} RWF/kg ({profile.get('price_date') or 'ubu'}). https://dataviz.vam.wfp.org/"
+        )
+    if lang == "rw":
+        return f"""
+---
+**Ibinyabiziga** (imibare ivuye mu mbonerahamwe, si iyavumbuwe na Groq)
+
+- {d}: imvura {profile['rain_pct']:+.1f}% ugereranyije n'isanzwe (Open-Meteo vs CHIRPS 2018–2025). https://open-meteo.com/ · https://www.chc.ucsb.edu/data/chirps
+- Iminsi 7: {profile['week_mm']:.1f} mm (Open-Meteo). Icyuho cy'icyumweru Pe−ETc {profile['water_week']:+.1f} mm (FAO-56).
+- SAS 2022 (NISR): imirima ihirwa {profile['irrigated_pct']:.1f}%; umusaruro usanzwe w'ibigori {profile['usual_yield']:.0f} kg/ha. https://www.statistics.gov.rw/
+{price_line}
+- CropWatch ntishyura NAIS kandi ntiyohereza SMS."""
+    return f"""
+---
+**Evidence** (figures from CropWatch tables, not invented by Groq)
+
+- {d}: rain {profile['rain_pct']:+.1f}% vs usual (Open-Meteo vs CHIRPS 2018–2025). https://open-meteo.com/ · https://www.chc.ucsb.edu/data/chirps
+- Next 7 days: {profile['week_mm']:.1f} mm (Open-Meteo). Weekly Pe−ETc {profile['water_week']:+.1f} mm (FAO-56).
+- NISR SAS 2022: irrigated plots {profile['irrigated_pct']:.1f}%; usual maize {profile['usual_yield']:.0f} kg/ha. https://www.statistics.gov.rw/
+{price_line}
+- CropWatch does not pay NAIS and does not send SMS. Yield gaps are Season A 2022 associations."""
+
+
+def rephrase_with_llm(source_text, profile, lang="en"):
+    """Rewrite with natural grammar. Copy numbers; add no new facts."""
+    body = strip_evidence(source_text)
+    if len(body) < 20:
+        return None
+    tongue = "Kinyarwanda" if lang == "rw" else "English"
+    prompt = (
+        f"Rewrite the CropWatch briefing in natural, grammatically correct {tongue}. "
+        "Keep the original meaning. Copy every number, unit, and district name exactly. "
+        "Do not add, drop, or round figures. Do not invent sources, NAIS payouts, SMS sends, or harvests. "
+        "Do not add a sources section.\n\n"
+        f"---\n{body}"
+    )
+    return call_cloud_llm(prompt, profile, lang=lang)
+
+
+def finish_answer(resp, profile, lang="en", polish=True):
+    text = strip_evidence(resp or "")
+    if polish:
+        cloud = rephrase_with_llm(text, profile, lang=lang)
+        if cloud and len(cloud) > 30:
+            text = strip_evidence(cloud)
+    return text.rstrip() + "\n" + evidence_md(profile, lang=lang)
 
 # ==============================================================================
 # UNIFIED DISPATCHER & CLOUD LLM FALLBACK
 # ==============================================================================
 
 def answer(user_text, profile, words, lang, hectares=0.5, force_intent=None, context=None):
-    # Tier 1: Try Cloud LLM if an API key is connected
-    cloud_resp = call_cloud_llm(user_text, profile, lang=lang)
-    if cloud_resp and len(cloud_resp) > 30:
-        return cloud_resp
-
-    # Tier 2: Check multi-district comparison
     districts = extract_all_districts(user_text)
     if len(districts) >= 2 and any(k in (user_text or "").lower() for k in ("compare", "versus", "vs", "difference", "itandukaniro", "gereranya")):
-        return ai_district_compare(districts[0], districts[1], lang=lang)
+        return finish_answer(ai_district_compare(districts[0], districts[1], lang=lang), profile, lang=lang)
 
     intent = force_intent or classify(user_text, context=context)
+    polish = True
+
+    if intent == "rephrase":
+        last = (context or {}).get("last_bot") or ""
+        cloud = rephrase_with_llm(last, profile, lang=lang)
+        if cloud and len(cloud) > 30:
+            return finish_answer(cloud, profile, lang=lang, polish=False)
+        if last:
+            return finish_answer(last, profile, lang=lang, polish=False)
+        if lang == "rw":
+            return "Banza ubaze ikibazo, hanyuma ukande *Rephrase this*."
+        return "Ask a district question first, then tap **Rephrase this**."
 
     # Fast machine learning, physical inference & specialized conversational dispatchers
     if intent in ("yield", "harvest", "projection"):
@@ -1534,16 +1432,16 @@ def answer(user_text, profile, words, lang, hectares=0.5, force_intent=None, con
 * **Ubuso buhirwa muri SAS 2022:** `{profile['irrigated_pct']:.1f}%`
 * **Icyuho cy'Ubuhehere:** `{profile['deficit_mm']:.1f} mm`
 
-Hitamo hejuru kimwe mu bice by'ubwenge bw'ubukorano (Models z'Umusaruro, Ibiciro bya WFP, Ubwishingizi bwa NAIS) cyangwa umbaze ikibazo icyo aricyo cyose ku buhinzi n'ubutaka."""
+Hitamo umusaruro, imvura, igiciro, cyangwa SMS (inyandiko gusa)."""
         else:
-            resp = f"""### Hello! I am your CropWatch ML Agronomic Copilot for {d}.
+            resp = f"""### Hello — CropWatch desk for {d}
 
-* **Rainfall Anomaly:** `{profile['rain_pct']:+.0f}%` relative to 1981–2025 baseline
-* **Next 7-Day Forecast:** `{profile['week_mm']:.0f} mm`
-* **Irrigated Plot Share (SAS):** `{profile['irrigated_pct']:.1f}%`
-* **Weekly Crop Water Deficit:** `{profile['deficit_mm']:.1f} mm`
+* Rain vs usual: `{profile['rain_pct']:+.0f}%` (Open-Meteo vs CHIRPS 2018–2025)
+* Next 7 days: `{profile['week_mm']:.0f} mm`
+* Irrigated plots in 2022: `{profile['irrigated_pct']:.1f}%`
+* Weekly water gap: `{profile['deficit_mm']:.1f} mm`
 
-Select one of the trained ML capabilities above (Yield Uplift, Drought Insurance, WFP Price Forecaster) or ask any question about Rwandan agriculture, soil, or climate."""
+Ask about yield (2022 gaps), this week's rain, WFP price, or an SMS draft. This desk does not pay NAIS or send texts."""
     elif intent == "week":
         d = profile["district"]
         deficit = profile["deficit_mm"]
@@ -1564,9 +1462,16 @@ Select one of the trained ML capabilities above (Yield Uplift, Drought Insurance
 
 👉 *[View full district breakdown and recommendations](?page=dashboard)*"""
     else:
-        resp = ai_general_agronomy(user_text, profile, lang=lang)
+        cloud_resp = call_cloud_llm(user_text, profile, lang=lang)
+        if cloud_resp and len(cloud_resp) > 30:
+            resp = cloud_resp
+            polish = False
+        else:
+            resp = ai_general_agronomy(user_text, profile, lang=lang)
 
-    return resp
+    if intent in ("team", "sms"):
+        polish = False
+    return finish_answer(resp, profile, lang=lang, polish=polish)
 
 
 def sms_text(profile, words):

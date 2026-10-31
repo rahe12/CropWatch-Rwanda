@@ -1,26 +1,17 @@
-# CropWatch Rwanda — Video Demonstration Guide
+# CropWatch Rwanda — 3-minute screen recording
 
-## NISR 2026 Big Data Hackathon Submission Deliverable
+NISR webinar: desktop screen record (Screencastify, OBS, or Chrome). Format `.webm` or `.gif`. At most 3 minutes. Do not film the monitor with a phone.
 
-As specified in the official **NISR Big Data Hackathon Guidelines (Slides 12 & 13)**, this directory is reserved for the screen recording demonstration file (`demo.webm` or `demo.gif`).
+The recording is `demo/demo.mp4` (desktop Screencastify, 31 October 2026). NISR also accepts `.webm` or `.gif`.
 
-### Video Submission Requirements:
-1. **Format:** WebM (`.webm`) or Animated GIF (`.gif`).
-2. **Duration:** Strictly under 3 minutes ($\le 3$ minutes).
-3. **Capture Standard:** Captured using browser screen recording tools (e.g., Screencastify, OBS Studio, or Chrome Screen Recorder). *Per NISR guidelines: do not use mobile phone camera recordings of physical monitors.*
+## Script
 
----
-
-## 3-Minute Demonstration Script:
-
-| Timestamp | Section | Visual Demonstration Focus |
+| Time | Page | What to show and say |
 |---|---|---|
-| **0:00 - 0:40** | **Executive Briefing & Map (`home`, `alerts`)** | Show the national overview, pulsing Season A 2026 operational badge, and interactive 30-district Folium GIS map with layer toggles (Rain Deficit, Irrigation Gap, Soil Erosion Risk, Sentinel-2 NDRE). |
-| **0:41 - 1:20** | **30-District Matrix & Pilots (`dashboard`, `pilot`)** | Demonstrate longitudinal 2018–2026 NISR SAS microdata filtering, district productivity benchmarks, and NASA POWER daily solar/temperature telemetry in Bugesera/Nyagatare. |
-| **1:21 - 2:05** | **ML Yield & SSIT Subsidy Simulator (`simulator`)** | Select Bugesera/Musanze, adjust supplementary irrigation toggle, inorganic fertilizer, and show the real-time $+385\text{ kg/ha}$ uplift and MINAGRI 50% government equipment subsidy calculation. |
-| **2:06 - 2:45** | **Bilingual AI Agronomic Copilot (`advise`)** | Ask agronomic questions in English and Kinyarwanda, click "🔊 Listen Aloud" (Web Speech API audio), and showcase the 160-character rural SMS generator for feature phones (`*801#`). |
-| **2:46 - 3:00** | **FastAPI Swagger Docs & Open Data (`data`, `docs`)** | Highlight the 10 production REST API endpoints at `/docs` and raw NISR SAS / CHIRPS CSV downloads. |
+| 0:00–0:25 | Home | CropWatch is a Season A water desk for 30 districts. NISR SAS 2022 plus CHIRPS usual rain and Open-Meteo. |
+| 0:25–1:10 | Alerts | Pick a district. Verdict, 7-day rain. Rwanda-only map. Download the 30-district CSV. |
+| 1:10–1:50 | My district | FAO-56 week water. After harvest: WFP maize or “no row”, PICS, exports through 2025. SSIT 50% is a planning split, not a quote. |
+| 1:50–2:25 | What-if yield | Season A 2022 maize OLS on 11,148 plots. Association, not a 2026 harvest forecast. |
+| 2:25–2:55 | Advice AI | Local tables first. Groq only rewrites grammar. Evidence links. SMS is a draft — not sent. |
 
----
-
-*CropWatch Rwanda · NISR 2026 Big Data Hackathon · Rwanda Polytechnic (Musanze College)*
+Say once, clearly: CropWatch does not pay NAIS and does not send SMS.
