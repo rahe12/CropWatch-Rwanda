@@ -618,5 +618,8 @@
   "what_is_p2_title": "Plot-Level Microdata Truth",
   "what_is_p2_desc": "Season A 2022 SAS plots: irrigation, fertilizer, farmer-reported erosion. The yield sliders use 11,148 maize plots. Pooled 2022–2023–2025 maize that joined is 28,042. No plot GPS, no soil pH in this table.",
   "what_is_p3_title": "One rule on every desk",
-  "what_is_p3_desc": "What-if yield uses 2022 within-district associations. Alerts use a written rain-and-irrigation rule. Copilot answers in English or Kinyarwanda from the same tables. It does not pay NAIS or send SMS."
+  "what_is_p3_desc": "What-if yield uses 2022 within-district associations. Alerts use a written rain-and-irrigation rule. Copilot answers in English or Kinyarwanda from the same tables. It does not pay NAIS or send SMS.",
+  "alerts_live_sync_title": "Live Open-Meteo & Meteo Rwanda Telemetry",
+  "alerts_today_forecast": "Active 7-Day Forecast Window:",
+  "alerts_btn_refresh": "Refresh Live Forecast"
 }

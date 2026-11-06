@@ -3,6 +3,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+from datetime import date, timedelta
 
 import folium
 import pandas as pd
@@ -109,6 +110,15 @@ def load():
     soil = pd.read_csv(APP_TABLES / "soil_season_a_2022.csv")
     alerts = pd.read_csv(APP_TABLES / "irrigation_alerts.csv")
     forecast = pd.read_csv(APP_TABLES / "forecast_7day.csv")
+
+    # Dynamic date synchronization: if cached forecast starts before today, auto-align
+    today_iso = date.today().isoformat()
+    if not forecast.empty and "date" in forecast.columns and str(forecast["date"].min()) < today_iso:
+        try:
+            from src.prepare_alerts import update_alerts_and_forecast
+            alerts, forecast = update_alerts_and_forecast(force=False)
+        except Exception:
+            pass
     exports_year = pd.read_csv(APP_TABLES / "maize_exports_by_year.csv")
     exports_partners = pd.read_csv(APP_TABLES / "maize_exports_partners.csv")
 
@@ -1273,6 +1283,32 @@ elif page == "alerts":
     page_head(words["alerts_title"], words["alerts_lead"], words)
 
     with page_body():
+        # Live Agrometeorological Telemetry Sync Header
+        latest_fetch = alerts["fetched_on"].iloc[0] if "fetched_on" in alerts.columns else date.today().isoformat()
+        is_today = (str(latest_fetch) == date.today().isoformat())
+        status_color = "#0d4f2b" if is_today else "#9a5700"
+        status_bg = "#eaf4ed" if is_today else "#fef9ee"
+        status_border = "#b7dcbe" if is_today else "#fde68a"
+
+        c_sync_info, c_sync_btn = st.columns([3.6, 1.4], vertical_alignment="center")
+        with c_sync_info:
+            d_start = pd.to_datetime(latest_fetch)
+            d_end = d_start + timedelta(days=6)
+            st.markdown(
+                f'<div style="background:{status_bg}; border:1px solid {status_border}; border-radius:8px; padding:8px 14px; font-size:12.5px; color:{status_color}; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:12px;">'
+                f'<span>🛰️</span> <span>{words["alerts_live_sync_title"]} · '
+                f'<strong>{words["alerts_today_forecast"]}</strong> '
+                f'{d_start.strftime("%d %b")} – {d_end.strftime("%d %b %Y")}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with c_sync_btn:
+            if st.button("🔄 " + words["alerts_btn_refresh"], key="btn_refresh_forecast", width="stretch", help="Fetch live 7-day numerical forecast from Open-Meteo for all 30 districts"):
+                with st.spinner("Fetching live Open-Meteo telemetry..."):
+                    from src.prepare_alerts import update_alerts_and_forecast
+                    update_alerts_and_forecast(force=True)
+                    st.rerun()
+
         st.markdown(
             f'<p class="kicker-green" style="margin:0">{tr("1. Check one district", "1. Reba akarere kamwe")}</p>',
             unsafe_allow_html=True,

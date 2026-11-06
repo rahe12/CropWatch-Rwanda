@@ -618,5 +618,8 @@
   "what_is_p2_title": "Amakuru Nyakuri ku Mirima",
   "what_is_p2_desc": "SAS 2022: kuhira, ifumbire, isuri. Umusaruro ukoresha imirima 11,148 y'ibigori. 28,042 ni 2022–2023–2025 hamwe. Nta GPS, nta pH.",
   "what_is_p3_title": "Ubwenge bwa Mudasobwa no Gufata Ibyemezo",
-  "what_is_p3_desc": "Umusaruro ukoresha itandukaniro rya 2022. Iburira rikoresha amategeko y'imvura n'imirima yahijwe. Copilot ivugana mu Cyongereza no mu Kinyarwanda. Ntishyura NAIS kandi ntikohereza SMS."
+  "what_is_p3_desc": "Umusaruro ukoresha itandukaniro rya 2022. Iburira rikoresha amategeko y'imvura n'imirima yahijwe. Copilot ivugana mu Cyongereza no mu Kinyarwanda. Ntishyura NAIS kandi ntikohereza SMS.",
+  "alerts_live_sync_title": "Iteganyagihe ry'Igihe Nyacyo rya Open-Meteo na Meteo Rwanda",
+  "alerts_today_forecast": "Iteganyagihe ry'Iminsi 7 Kuri Ubu:",
+  "alerts_btn_refresh": "Kuvugurura Iteganyagihe"
 }
