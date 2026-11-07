@@ -1393,36 +1393,36 @@ elif page == "alerts":
         # ---- national overview ---------------------------------------------------------
         n_crit = int((alerts["climate_class"] == "water_stress").sum()) if "climate_class" in alerts.columns else 0
         n_high = max(int((alerts["alert"] == "irrigation_gap").sum()) - n_crit, 0)
-    n_soil = int(alerts["alert"].isin(["soil_rain", "soil_watch"]).sum())
-    n_stab = int((alerts["alert"] == "stable").sum())
+        n_soil = int(alerts["alert"].isin(["soil_rain", "soil_watch"]).sum())
+        n_stab = int((alerts["alert"] == "stable").sum())
 
-    st.markdown(
-        f"""
+        st.markdown(
+            f"""
             <div class="inner-wrap" style="padding-top:24px">
               <p class="kicker-green">{tr("2. See all districts", "2. Reba uturere twose")}</p>
               <p class="section-p">{words["alerts_explain"]}</p>
-          <div class="alert-triage-grid">
-            <div class="alert-triage-card critical">
+              <div class="alert-triage-grid">
+                <div class="alert-triage-card critical">
                   <div class="triage-head"><span class="triage-title">{words.get("alerts_triage_critical", "Critical moisture stress")}</span><span class="triage-count">{n_crit}</span></div>
                   <div class="triage-desc">{words.get("alerts_triage_critical_desc", "Severe deficit and under 10% irrigation.")}</div>
-            </div>
-            <div class="alert-triage-card high">
+                </div>
+                <div class="alert-triage-card high">
                   <div class="triage-head"><span class="triage-title">{words.get("alerts_triage_high", "High irrigation gap")}</span><span class="triage-count">{n_high}</span></div>
                   <div class="triage-desc">{words.get("alerts_triage_high_desc", "Rainfall deficit. Mobilize supplementary irrigation.")}</div>
-            </div>
-            <div class="alert-triage-card soil">
+                </div>
+                <div class="alert-triage-card soil">
                   <div class="triage-head"><span class="triage-title">{words.get("alerts_triage_soil", "Hillside runoff risk")}</span><span class="triage-count">{n_soil}</span></div>
                   <div class="triage-desc">{words.get("alerts_triage_soil_desc", "Sloping plots. Reinforce terraces and drainage.")}</div>
-            </div>
-            <div class="alert-triage-card stable">
+                </div>
+                <div class="alert-triage-card stable">
                   <div class="triage-head"><span class="triage-title">{words.get("alerts_triage_stable", "Stable")}</span><span class="triage-count">{n_stab}</span></div>
                   <div class="triage-desc">{words.get("alerts_triage_stable_desc", "Standard seasonal monitoring.")}</div>
+                </div>
               </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
         view = alerts.copy()
         geo_path = APP_TABLES / "districts.geojson"
@@ -1430,79 +1430,80 @@ elif page == "alerts":
 
         with st.container(key="alert_map_board"):
             col_ctrl, col_map = st.columns([0.95, 2.05], vertical_alignment="top", gap="medium")
-    with col_ctrl:
-        st.markdown(
-            f"""
-            <div class="map-controls-deck">
-              <div class="deck-header">
+            with col_ctrl:
+                st.markdown(
+                    f"""
+                    <div class="map-controls-deck">
+                      <div class="deck-header">
                         <span class="deck-icon">🇷🇼</span>
-                <div>
+                        <div>
                           <strong>{tr("Rwanda · 30 districts", "u Rwanda · uturere 30")}</strong>
                           <small>{tr(f"Selected: {chosen}", f"Byatoranijwe: {chosen}")}</small>
-                </div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                        </div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
                     f'<p class="map-side-label">{words["layer_title"]}</p>',
                     unsafe_allow_html=True,
                 )
-        layer = st.radio(
-            words["layer_title"],
-            ["alert", "climate", "rain", "irrigation", "soil", "vegetation"],
-            format_func=lambda key: {
-                "alert": "🚨 " + words["layer_alert"],
-                "climate": "🌍 " + words["layer_climate"],
-                "rain": "🌧️ " + words["layer_rain"],
-                "irrigation": "💧 " + words["layer_irrig"],
-                "soil": "⛰️ " + words["layer_soil"],
-                "vegetation": "🌿 " + words["layer_veg"],
-            }[key],
-            index=0 if role != "agronomist" else 1,
-            label_visibility="collapsed",
-            key="map_layer",
-        )
+                layer = st.radio(
+                    words["layer_title"],
+                    ["alert", "climate", "rain", "irrigation", "soil", "vegetation"],
+                    format_func=lambda key: {
+                        "alert": "🚨 " + words["layer_alert"],
+                        "climate": "🌍 " + words["layer_climate"],
+                        "rain": "🌧️ " + words["layer_rain"],
+                        "irrigation": "💧 " + words["layer_irrig"],
+                        "soil": "⛰️ " + words["layer_soil"],
+                        "vegetation": "🌿 " + words["layer_veg"],
+                    }[key],
+                    index=0 if role != "agronomist" else 1,
+                    label_visibility="collapsed",
+                    key="map_layer",
+                )
                 st.markdown(f'<p class="map-side-label">🎯 {words["filter"]}</p>', unsafe_allow_html=True)
-        shown = st.pills(
-            words["filter"],
-            ["all", "irrigation", "soil", "stable"],
-            format_func=lambda key: {
+                shown = st.pills(
+                    words["filter"],
+                    ["all", "irrigation", "soil", "stable"],
+                    format_func=lambda key: {
                         "all": tr("All (30)", "Byose (30)"),
                         "irrigation": tr("Irrigation", "Kuhira"),
                         "soil": tr("Hillside", "Ubutaka"),
                         "stable": tr("Stable", "Bitekanye"),
-            }[key],
-            default="all" if role == "agronomist" else "irrigation",
-            label_visibility="collapsed",
-            key="alert_filter",
-        )
-        if shown is None:
-            shown = "all" if role == "agronomist" else "irrigation"
-        dry_cut = st.slider(words["filter_rain"], min_value=-40, max_value=10, value=10, step=5, key="dry_cut")
-        st.markdown(layer_legend(layer, words), unsafe_allow_html=True)
+                    }[key],
+                    default="all" if role == "agronomist" else "irrigation",
+                    label_visibility="collapsed",
+                    key="alert_filter",
+                )
+                if shown is None:
+                    shown = "all" if role == "agronomist" else "irrigation"
+                dry_cut = st.slider(words["filter_rain"], min_value=-40, max_value=10, value=10, step=5, key="dry_cut")
+                st.markdown(layer_legend(layer, words), unsafe_allow_html=True)
 
-    if shown == "irrigation":
-        view = view[view["alert"].isin(["irrigation_gap", "irrigate_now", "dry_watch"])]
-    elif shown == "soil":
-        view = view[view["alert"].isin(["soil_rain", "soil_watch"])]
-    elif shown == "stable":
-        view = view[view["alert"] == "stable"]
-    view = view[view["rain_difference_pct"] <= dry_cut]
-    with col_map:
+            if shown == "irrigation":
+                view = view[view["alert"].isin(["irrigation_gap", "irrigate_now", "dry_watch"])]
+            elif shown == "soil":
+                view = view[view["alert"].isin(["soil_rain", "soil_watch"])]
+            elif shown == "stable":
+                view = view[view["alert"] == "stable"]
+            view = view[view["rain_difference_pct"] <= dry_cut]
+            with col_map:
+                map_title = tr("National alert map", "Ikarita y'iburira y'igihugu")
                 st.markdown(
-                    f'<p class="map-frame-title">{tr("National alert map", "Ikarita y\'iburira y\'igihugu")} · {chosen}</p>',
+                    f'<p class="map-frame-title">{map_title} · {chosen}</p>',
                     unsafe_allow_html=True,
                 )
-        if geojson is not None:
+                if geojson is not None:
                     components.html(
                         alert_map(alerts, forecast, geojson, words, layer=layer, focus_district=chosen),
                         height=620,
                         scrolling=False,
                     )
-        else:
-            st.markdown(f'<div class="note-box">{words["map_missing"]}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<div class="note-box">{words["map_missing"]}</div>', unsafe_allow_html=True)
 
         if view.empty:
             st.markdown(f'<div class="note-box">{words["empty_district"]}</div>', unsafe_allow_html=True)
@@ -1516,17 +1517,17 @@ elif page == "alerts":
         rank_rows = [
             (
                 int(item["rank"]),
-            item["district"],
+                item["district"],
                 f"<strong>{item['track1_score']:.1f}</strong>",
                 f"{item['rain_pts']:.1f} / 40",
                 f"{item['irrig_pts']:.1f} / 30",
                 f"{item['soil_pts']:.1f} / 20",
                 f"{item['week_pts']:.1f} / 10",
-            pill(item["alert"], words),
-        )
+                pill(item["alert"], words),
+            )
             for _, item in rank.iterrows()
-    ]
-    st.markdown(
+        ]
+        st.markdown(
             data_table(
                 [
                     words.get("rank_col", "Rank"),
@@ -1540,8 +1541,8 @@ elif page == "alerts":
                 ],
                 rank_rows,
             ),
-        unsafe_allow_html=True,
-    )
+            unsafe_allow_html=True,
+        )
         st.download_button(
             words.get("ranking_csv", "Download district order (CSV)"),
             rank.to_csv(index=False).encode("utf-8"),
@@ -1569,7 +1570,7 @@ elif page == "district":
         ])
 
         # ---- Overview ------------------------------------------------------------------
-    with tab_matrix:
+        with tab_matrix:
             chosen_d = district_select(words["dash_profile_title"], district_names_all, "dash_district")
             drow = alerts[alerts["district"] == chosen_d].iloc[0]
             dweek = forecast[forecast["district"] == chosen_d].sort_values("date")
@@ -1598,123 +1599,123 @@ elif page == "district":
                 key="dash_html",
             )
 
-        counts = alerts["alert"].value_counts()
-        count_rows = [(words.get("label_" + name, name), int(value)) for name, value in counts.items()]
-        climate_block = ""
-        if "climate_class" in alerts.columns:
-            climate_rows = [
-                (words.get("label_" + name, name), int(value))
-                for name, value in alerts["climate_class"].value_counts().items()
-            ]
-            climate_block = (
-                f'<p class="kicker-green" style="margin-top:28px">{words["climate_kicker"]}</p>'
-                f'<p class="section-p">{words["climate_lead"]}</p>'
-                + data_table([words["col_status"], words["districts"]], climate_rows)
-            )
-        water_kpi = ""
-        if "water_balance_week_mm" in driest.index and pd.notna(driest.get("water_balance_week_mm")):
-            water_kpi = kpi(words["stat_water"], f"{float(driest['water_balance_week_mm']):+.0f}")
+            counts = alerts["alert"].value_counts()
+            count_rows = [(words.get("label_" + name, name), int(value)) for name, value in counts.items()]
+            climate_block = ""
+            if "climate_class" in alerts.columns:
+                climate_rows = [
+                    (words.get("label_" + name, name), int(value))
+                    for name, value in alerts["climate_class"].value_counts().items()
+                ]
+                climate_block = (
+                    f'<p class="kicker-green" style="margin-top:28px">{words["climate_kicker"]}</p>'
+                    f'<p class="section-p">{words["climate_lead"]}</p>'
+                    + data_table([words["col_status"], words["districts"]], climate_rows)
+                )
+            water_kpi = ""
+            if "water_balance_week_mm" in driest.index and pd.notna(driest.get("water_balance_week_mm")):
+                water_kpi = kpi(words["stat_water"], f"{float(driest['water_balance_week_mm']):+.0f}")
             with st.expander("📊 " + tr("National summary tables", "Incamake y'igihugu")):
-        st.markdown(
+                st.markdown(
                     '<div class="kpi-row">'
-            + kpi(words["stat_alert_districts"], str(n_gap))
-            + kpi(words["stat_irrigated"], f"{irrig_national:.1f}%")
-            + kpi(words["stat_worst"], f"{driest['rain_difference_pct']:.0f}%")
-            + water_kpi
-            + "</div>"
+                    + kpi(words["stat_alert_districts"], str(n_gap))
+                    + kpi(words["stat_irrigated"], f"{irrig_national:.1f}%")
+                    + kpi(words["stat_worst"], f"{driest['rain_difference_pct']:.0f}%")
+                    + water_kpi
+                    + "</div>"
                     + f'<p class="kicker-green" style="margin-top:28px">{words["dash_fresh_title"]}</p>'
-            + '<div class="fresh-list">'
-            + f'<article><span>{words["price_until"]}</span><strong>{status["price_last_date"]}</strong></article>'
-            + f'<article><span>{words["rain_until"]}</span><strong>{rain_text}</strong></article>'
-            + f'<article><span>{words["trade_until"]}</span><strong>{int(status["trade_last_year"])}</strong></article>'
-            + "</div>"
-            + f'<div class="note-box">{words["dash_status_ok"]}. {words["dash_status_api"]}. {words["pilot_note"]}</div>'
-            + f'<p class="kicker-green">{words["dash_risk_title"]}</p>'
-            + data_table([words["col_status"], words["districts"]], count_rows)
-            + climate_block
+                    + '<div class="fresh-list">'
+                    + f'<article><span>{words["price_until"]}</span><strong>{status["price_last_date"]}</strong></article>'
+                    + f'<article><span>{words["rain_until"]}</span><strong>{rain_text}</strong></article>'
+                    + f'<article><span>{words["trade_until"]}</span><strong>{int(status["trade_last_year"])}</strong></article>'
+                    + "</div>"
+                    + f'<div class="note-box">{words["dash_status_ok"]}. {words["dash_status_api"]}. {words["pilot_note"]}</div>'
+                    + f'<p class="kicker-green">{words["dash_risk_title"]}</p>'
+                    + data_table([words["col_status"], words["districts"]], count_rows)
+                    + climate_block
                     + f'<p class="section-p">{words["export_note"]}</p>',
-            unsafe_allow_html=True,
-        )
-        st.download_button(
-            words["export_csv"],
-            alerts.to_csv(index=False).encode("utf-8"),
-            "cropwatch_irrigation_alerts.csv",
-            "text/csv",
-            key="dash_csv",
-        )
+                    unsafe_allow_html=True,
+                )
+                st.download_button(
+                    words["export_csv"],
+                    alerts.to_csv(index=False).encode("utf-8"),
+                    "cropwatch_irrigation_alerts.csv",
+                    "text/csv",
+                    key="dash_csv",
+                )
 
         # ---- Climate and markets -------------------------------------------------------
-    with tab_climate:
+        with tab_climate:
             st.markdown(f'<p class="section-p">{words["watch_explain"]}</p>', unsafe_allow_html=True)
-        district_names_w = sorted(watch["district"].unique())
+            district_names_w = sorted(watch["district"].unique())
             left_w, right_w = st.columns([1.1, 2], vertical_alignment="bottom")
-        with left_w:
-            chosen_w = st.selectbox(
-                words["pick_district"],
-                district_names_w,
-                index=district_names_w.index("Nyagatare") if "Nyagatare" in district_names_w else 0,
-                key="watch_district",
-            )
-        with right_w:
-            season_labels = {
+            with left_w:
+                chosen_w = st.selectbox(
+                    words["pick_district"],
+                    district_names_w,
+                    index=district_names_w.index("Nyagatare") if "Nyagatare" in district_names_w else 0,
+                    key="watch_district",
+                )
+            with right_w:
+                season_labels = {
                     "A": tr("Season A 2026", "Igihembwe A 2026"),
                     "B": tr("Season B 2026", "Igihembwe B 2026"),
-            }
-            chosen_season = st.pills(
-                words["season_col"],
-                ["B", "A"],
-                format_func=lambda code: season_labels[code],
-                default="B",
-                label_visibility="collapsed",
-                key="season_pick",
+                }
+                chosen_season = st.pills(
+                    words["season_col"],
+                    ["B", "A"],
+                    format_func=lambda code: season_labels[code],
+                    default="B",
+                    label_visibility="collapsed",
+                    key="season_pick",
+                )
+                if chosen_season is None:
+                    chosen_season = "B"
+            w_row = watch[(watch["district"] == chosen_w) & (watch["season"] == chosen_season)].iloc[0]
+            pct_w = float(w_row["rain_difference_pct"])
+            yield_kg_w = float(w_row["usual_yield_kg_ha"])
+            if pct_w <= -10:
+                sentence_w = words["watch_drier"]
+            elif pct_w >= 10:
+                sentence_w = words["watch_wetter"]
+            else:
+                sentence_w = words["watch_close"]
+            if pd.notna(w_row["maize_price_rwf_per_kg"]):
+                price_text_w = words["price_here"].format(price=w_row["maize_price_rwf_per_kg"], date=w_row["price_date"])
+            else:
+                price_text_w = words["price_national"].format(price=w_row["national_maize_price_rwf_per_kg"], date=w_row["national_price_date"])
+            veg_text_w = words["veg_line"].format(year=2026, now=w_row["vegetation_2026"], usual=w_row["usual_vegetation"])
+            export_year_rows = [(int(item["year"]), f"{item['trade_value_usd']:,.0f}", item.get("partner", "")) for _, item in exports_year.iterrows()]
+            export_partner_rows = [(item["partner"], f"{item['trade_value_usd']:,.0f}", int(item["year"])) for _, item in exports_partners.iterrows()]
+            st.markdown(
+                '<div class="inner-wrap">'
+                + board(
+                    season_labels[chosen_season],
+                    chosen_w,
+                    sentence_w.format(pct=abs(pct_w), yield_kg=yield_kg_w),
+                    "",
+                    [
+                        kpi(words["rain_now"], f"{w_row['rain_mm']:.0f}"),
+                        kpi(words["usual_col"], f"{w_row['usual_rain_mm']:.0f}"),
+                        kpi(words["diff_col"], f"{w_row['rain_difference_mm']:.0f}"),
+                        kpi(words["yield_usual"], f"{yield_kg_w:.0f}"),
+                    ],
+                )
+                + '<div class="split-cards">'
+                + f'<article><h3>{words["price_card"]}</h3><p>{price_text_w}</p></article>'
+                + f'<article><h3>{words["veg_card"]}</h3><p>{veg_text_w}</p></article>'
+                + "</div>"
+                + f'<p class="kicker-green">{words["ndre_title"]}</p><p class="section-p">{words["ndre_lead"]}</p>'
+                + "</div>",
+                unsafe_allow_html=True,
             )
-            if chosen_season is None:
-                chosen_season = "B"
-        w_row = watch[(watch["district"] == chosen_w) & (watch["season"] == chosen_season)].iloc[0]
-        pct_w = float(w_row["rain_difference_pct"])
-        yield_kg_w = float(w_row["usual_yield_kg_ha"])
-        if pct_w <= -10:
-            sentence_w = words["watch_drier"]
-        elif pct_w >= 10:
-            sentence_w = words["watch_wetter"]
-        else:
-            sentence_w = words["watch_close"]
-        if pd.notna(w_row["maize_price_rwf_per_kg"]):
-            price_text_w = words["price_here"].format(price=w_row["maize_price_rwf_per_kg"], date=w_row["price_date"])
-        else:
-            price_text_w = words["price_national"].format(price=w_row["national_maize_price_rwf_per_kg"], date=w_row["national_price_date"])
-        veg_text_w = words["veg_line"].format(year=2026, now=w_row["vegetation_2026"], usual=w_row["usual_vegetation"])
-        export_year_rows = [(int(item["year"]), f"{item['trade_value_usd']:,.0f}", item.get("partner", "")) for _, item in exports_year.iterrows()]
-        export_partner_rows = [(item["partner"], f"{item['trade_value_usd']:,.0f}", int(item["year"])) for _, item in exports_partners.iterrows()]
-        st.markdown(
-            '<div class="inner-wrap">'
-            + board(
-                season_labels[chosen_season],
-                chosen_w,
-                sentence_w.format(pct=abs(pct_w), yield_kg=yield_kg_w),
-                "",
-                [
-                    kpi(words["rain_now"], f"{w_row['rain_mm']:.0f}"),
-                    kpi(words["usual_col"], f"{w_row['usual_rain_mm']:.0f}"),
-                    kpi(words["diff_col"], f"{w_row['rain_difference_mm']:.0f}"),
-                    kpi(words["yield_usual"], f"{yield_kg_w:.0f}"),
-                ],
-            )
-            + '<div class="split-cards">'
-            + f'<article><h3>{words["price_card"]}</h3><p>{price_text_w}</p></article>'
-            + f'<article><h3>{words["veg_card"]}</h3><p>{veg_text_w}</p></article>'
-            + "</div>"
-            + f'<p class="kicker-green">{words["ndre_title"]}</p><p class="section-p">{words["ndre_lead"]}</p>'
-            + "</div>",
-            unsafe_allow_html=True,
-        )
-        veg_d = vegetation[vegetation["district"] == chosen_w].sort_values("year")
-        nat_v = vegetation.groupby("year")["vegetation_mean"].mean()
-        ndre_chart = pd.DataFrame({
-            words["ndre_district"]: veg_d.set_index("year")["vegetation_mean"],
-            words["ndre_national"]: nat_v,
-        })
-        st.line_chart(ndre_chart, height=280)
+            veg_d = vegetation[vegetation["district"] == chosen_w].sort_values("year")
+            nat_v = vegetation.groupby("year")["vegetation_mean"].mean()
+            ndre_chart = pd.DataFrame({
+                words["ndre_district"]: veg_d.set_index("year")["vegetation_mean"],
+                words["ndre_national"]: nat_v,
+            })
+            st.line_chart(ndre_chart, height=280)
             with st.expander("🌽 " + tr("Maize exports", "Ibigori byoherezwa hanze")):
                 st.markdown(
                     f'<p class="kicker-green">{words["export_year"]}</p><p class="section-p">{words["export_lead"]}</p>'
@@ -1725,114 +1726,114 @@ elif page == "district":
                 )
 
         # ---- Soil and terraces ---------------------------------------------------------
-    with tab_soil:
+        with tab_soil:
             st.markdown(f'<p class="section-p">{words["soil_explain"]}</p>', unsafe_allow_html=True)
-        view_s = soil.copy()
-        view_s["concern"] = 100 * view_s["concern_yes_weight"] / view_s["concern_weight"]
-        view_s["severe"] = 100 * view_s["severe_yes_weight"] / view_s["severe_weight"]
-        view_s["protected"] = 100 * view_s["protected_yes_weight"] / view_s["protected_weight"]
-        view_s["organic"] = 100 * view_s["organic_yes_weight"] / view_s["organic_weight"]
-        view_s["inorganic"] = 100 * view_s["inorganic_yes_weight"] / view_s["inorganic_weight"]
-        view_s["short"] = 100 * view_s["organic_short_yes_weight"] / view_s["organic_short_weight"]
-        district_names_s = sorted(view_s["district"].unique())
-        chosen_s = st.selectbox(
-            words["pick_district"],
-            district_names_s,
-            index=district_names_s.index("Rulindo") if "Rulindo" in district_names_s else 0,
-            key="soil_district",
-        )
-        s_row = view_s[view_s["district"] == chosen_s].iloc[0]
-        rain_pct_s = float(s_row["rain_difference_pct"])
-        if rain_pct_s <= -10:
-            rain_sentence_s = words["soil_rain_drier"]
-        elif rain_pct_s >= 10:
-            rain_sentence_s = words["soil_rain_wetter"]
-        else:
-            rain_sentence_s = words["soil_rain_close"]
-        ranked_s = view_s.sort_values("concern", ascending=False)
-        ranked_rows_s = [
-            (
-                item["district"],
-                bar_cell(item["concern"]),
-                f"{item['severe']:.0f}%",
-                f"{item['protected']:.0f}%",
-                f"{item['organic']:.0f}%",
-                f"{item['inorganic']:.0f}%",
-                f"{item['rain_difference_pct']:.0f}%",
+            view_s = soil.copy()
+            view_s["concern"] = 100 * view_s["concern_yes_weight"] / view_s["concern_weight"]
+            view_s["severe"] = 100 * view_s["severe_yes_weight"] / view_s["severe_weight"]
+            view_s["protected"] = 100 * view_s["protected_yes_weight"] / view_s["protected_weight"]
+            view_s["organic"] = 100 * view_s["organic_yes_weight"] / view_s["organic_weight"]
+            view_s["inorganic"] = 100 * view_s["inorganic_yes_weight"] / view_s["inorganic_weight"]
+            view_s["short"] = 100 * view_s["organic_short_yes_weight"] / view_s["organic_short_weight"]
+            district_names_s = sorted(view_s["district"].unique())
+            chosen_s = st.selectbox(
+                words["pick_district"],
+                district_names_s,
+                index=district_names_s.index("Rulindo") if "Rulindo" in district_names_s else 0,
+                key="soil_district",
             )
-            for _, item in ranked_s.iterrows()
-        ]
-        st.markdown(
-            '<div class="inner-wrap">'
-            + board(
-                    tr("Soil", "Ubutaka"),
-                chosen_s,
-                words["soil_sentence"].format(
-                    concern=s_row["concern"],
-                    severe=s_row["severe"],
-                    protected=s_row["protected"],
-                    organic=s_row["organic"],
-                    inorganic=s_row["inorganic"],
+            s_row = view_s[view_s["district"] == chosen_s].iloc[0]
+            rain_pct_s = float(s_row["rain_difference_pct"])
+            if rain_pct_s <= -10:
+                rain_sentence_s = words["soil_rain_drier"]
+            elif rain_pct_s >= 10:
+                rain_sentence_s = words["soil_rain_wetter"]
+            else:
+                rain_sentence_s = words["soil_rain_close"]
+            ranked_s = view_s.sort_values("concern", ascending=False)
+            ranked_rows_s = [
+                (
+                    item["district"],
+                    bar_cell(item["concern"]),
+                    f"{item['severe']:.0f}%",
+                    f"{item['protected']:.0f}%",
+                    f"{item['organic']:.0f}%",
+                    f"{item['inorganic']:.0f}%",
+                    f"{item['rain_difference_pct']:.0f}%",
                 )
-                + " "
-                + words["soil_short"].format(short=s_row["short"]),
-                rain_sentence_s.format(
-                    pct=abs(rain_pct_s),
-                    rain=s_row["rain_mm"],
-                    usual=s_row["usual_rain_mm"],
-                    yield_kg=s_row["usual_yield_kg_ha"],
-                ),
-                [
-                    kpi(words["concern_metric"], f"{s_row['concern']:.0f}"),
-                    kpi(words["severe_metric"], f"{s_row['severe']:.0f}"),
-                    kpi(words["protected_metric"], f"{s_row['protected']:.0f}"),
-                    kpi(words["organic_metric"], f"{s_row['organic']:.0f}"),
-                    kpi(words["inorganic_metric"], f"{s_row['inorganic']:.0f}"),
-                ],
+                for _, item in ranked_s.iterrows()
+            ]
+            st.markdown(
+                '<div class="inner-wrap">'
+                + board(
+                    tr("Soil", "Ubutaka"),
+                    chosen_s,
+                    words["soil_sentence"].format(
+                        concern=s_row["concern"],
+                        severe=s_row["severe"],
+                        protected=s_row["protected"],
+                        organic=s_row["organic"],
+                        inorganic=s_row["inorganic"],
+                    )
+                    + " "
+                    + words["soil_short"].format(short=s_row["short"]),
+                    rain_sentence_s.format(
+                        pct=abs(rain_pct_s),
+                        rain=s_row["rain_mm"],
+                        usual=s_row["usual_rain_mm"],
+                        yield_kg=s_row["usual_yield_kg_ha"],
+                    ),
+                    [
+                        kpi(words["concern_metric"], f"{s_row['concern']:.0f}"),
+                        kpi(words["severe_metric"], f"{s_row['severe']:.0f}"),
+                        kpi(words["protected_metric"], f"{s_row['protected']:.0f}"),
+                        kpi(words["organic_metric"], f"{s_row['organic']:.0f}"),
+                        kpi(words["inorganic_metric"], f"{s_row['inorganic']:.0f}"),
+                    ],
+                )
+                + f'<p class="kicker-green">{words["soil_table"]}</p>'
+                + data_table(
+                    [
+                        words["district_col"],
+                        words["concern_metric"],
+                        words["severe_metric"],
+                        words["protected_metric"],
+                        words["organic_metric"],
+                        words["inorganic_metric"],
+                        words["rain_vs"],
+                    ],
+                    ranked_rows_s,
+                )
+                + "</div>",
+                unsafe_allow_html=True,
             )
-            + f'<p class="kicker-green">{words["soil_table"]}</p>'
-            + data_table(
-                [
-                    words["district_col"],
-                    words["concern_metric"],
-                    words["severe_metric"],
-                    words["protected_metric"],
-                    words["organic_metric"],
-                    words["inorganic_metric"],
-                    words["rain_vs"],
-                ],
-                ranked_rows_s,
+            st.download_button(
+                words["export_csv"],
+                view_s[["district", "concern", "severe", "protected", "organic", "inorganic", "short", "rain_difference_pct"]].to_csv(index=False).encode("utf-8"),
+                "cropwatch_soil_season_a_2022.csv",
+                "text/csv",
+                key="soil_csv",
             )
-            + "</div>",
-            unsafe_allow_html=True,
-        )
-        st.download_button(
-            words["export_csv"],
-            view_s[["district", "concern", "severe", "protected", "organic", "inorganic", "short", "rain_difference_pct"]].to_csv(index=False).encode("utf-8"),
-            "cropwatch_soil_season_a_2022.csv",
-            "text/csv",
-            key="soil_csv",
-        )
 
         # ---- What-if yield -------------------------------------------------------------
         sim_names = sorted(sim_base["district"].unique()) if not sim_base.empty else district_names_all
-    with tab_yield:
+        with tab_yield:
             st.markdown(f'<p class="section-p">{words["sim_lead"]}</p>', unsafe_allow_html=True)
-        chosen_sim = st.selectbox(
-            words["pick_district"],
+            chosen_sim = st.selectbox(
+                words["pick_district"],
                 sim_names,
                 index=sim_names.index("Bugesera") if "Bugesera" in sim_names else 0,
-            key="sim_district_select",
-        )
-        sim_row = sim_base[sim_base["district"] == chosen_sim].iloc[0] if not sim_base.empty else alerts[alerts["district"] == chosen_sim].iloc[0]
-        effects = (benchmark or {}).get("within_district_kg_ha", {})
-        left, right = st.columns(2)
-        with left:
-            d_irrig = st.slider(words["sim_irrig_slider"], 0, 30, 10, 5, help=words["sim_irrig_help"], key="d_irrig")
-        with right:
-            d_short = st.slider(words["sim_organic_slider"], 0, 50, 20, 10, help=words["sim_organic_help"], key="d_short")
-        current_irrig = float(sim_row["irrigated_pct"])
-        current_short = float(sim_row["organic_short_pct"]) if "organic_short_pct" in sim_row and pd.notna(sim_row["organic_short_pct"]) else 0.0
+                key="sim_district_select",
+            )
+            sim_row = sim_base[sim_base["district"] == chosen_sim].iloc[0] if not sim_base.empty else alerts[alerts["district"] == chosen_sim].iloc[0]
+            effects = (benchmark or {}).get("within_district_kg_ha", {})
+            left, right = st.columns(2)
+            with left:
+                d_irrig = st.slider(words["sim_irrig_slider"], 0, 30, 10, 5, help=words["sim_irrig_help"], key="d_irrig")
+            with right:
+                d_short = st.slider(words["sim_organic_slider"], 0, 50, 20, 10, help=words["sim_organic_help"], key="d_short")
+            current_irrig = float(sim_row["irrigated_pct"])
+            current_short = float(sim_row["organic_short_pct"]) if "organic_short_pct" in sim_row and pd.notna(sim_row["organic_short_pct"]) else 0.0
             whatif = district_share_whatif(
                 sim_row["usual_yield_kg_ha"], current_irrig, current_short, d_irrig, d_short, effects
             )
@@ -1844,90 +1845,90 @@ elif page == "district":
             base_y = whatif["base_kg_ha"]
             proj_y = whatif["projected_kg_ha"]
             gain_pct = whatif["gain_pct"]
-        sim_body = words["sim_body"].format(
-            district=chosen_sim, irrig_gap=irrig_gap, short_gap=short_gap,
-            d_irrig=new_irrig - current_irrig, d_short=current_short - new_short, gain=gain_kg, pct=gain_pct,
-        )
-        st.markdown(
-            '<div class="inner-wrap">'
-            + f'<div class="note-box">{words["sim_assump"]}</div>'
-            + board(
-                    tr("What-if yield", "Isesengura ry'umusaruro"), chosen_sim, sim_body,
-                words["sim_policy_note"] + " " + words["sim_protect_note"],
-                [
-                    kpi(words["sim_base_yield"], f"{base_y:.0f}"),
-                    kpi(words["sim_projected_yield"], f"{proj_y:.0f}"),
-                    kpi(words["sim_gain"], f"{gain_kg:+.0f}"),
-                    kpi(words["sim_gain_pct"], f"{gain_pct:+.1f}%"),
-                    kpi(words["stat_irrigated"], f"{current_irrig:.1f}% → {new_irrig:.1f}%"),
-                    kpi(words["sim_short_now"], f"{current_short:.1f}% → {new_short:.1f}%"),
-                ],
+            sim_body = words["sim_body"].format(
+                district=chosen_sim, irrig_gap=irrig_gap, short_gap=short_gap,
+                d_irrig=new_irrig - current_irrig, d_short=current_short - new_short, gain=gain_kg, pct=gain_pct,
             )
-            + "</div>",
-            unsafe_allow_html=True,
-        )
+            st.markdown(
+                '<div class="inner-wrap">'
+                + f'<div class="note-box">{words["sim_assump"]}</div>'
+                + board(
+                    tr("What-if yield", "Isesengura ry'umusaruro"), chosen_sim, sim_body,
+                    words["sim_policy_note"] + " " + words["sim_protect_note"],
+                    [
+                        kpi(words["sim_base_yield"], f"{base_y:.0f}"),
+                        kpi(words["sim_projected_yield"], f"{proj_y:.0f}"),
+                        kpi(words["sim_gain"], f"{gain_kg:+.0f}"),
+                        kpi(words["sim_gain_pct"], f"{gain_pct:+.1f}%"),
+                        kpi(words["stat_irrigated"], f"{current_irrig:.1f}% → {new_irrig:.1f}%"),
+                        kpi(words["sim_short_now"], f"{current_short:.1f}% → {new_short:.1f}%"),
+                    ],
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
 
         # ---- Irrigation kit ------------------------------------------------------------
-    with tab_ssit:
+        with tab_ssit:
             chosen_kit = st.selectbox(
                 words["pick_district"], sim_names,
                 index=sim_names.index("Bugesera") if "Bugesera" in sim_names else 0,
                 key="ssit_district",
             )
-        kit_row = alerts[alerts["district"] == chosen_kit].iloc[0]
-        watch_hit = watch[(watch["district"] == chosen_kit) & (watch["season"] == "A")]
-        watch_hit = watch_hit.iloc[0] if not watch_hit.empty else None
-        hectares = st.slider(words["ssit_ha"], 0.2, 5.0, 0.5, 0.1, key="ssit_ha")
-        src_col, crop_col = st.columns(2)
-        with src_col:
+            kit_row = alerts[alerts["district"] == chosen_kit].iloc[0]
+            watch_hit = watch[(watch["district"] == chosen_kit) & (watch["season"] == "A")]
+            watch_hit = watch_hit.iloc[0] if not watch_hit.empty else None
+            hectares = st.slider(words["ssit_ha"], 0.2, 5.0, 0.5, 0.1, key="ssit_ha")
+            src_col, crop_col = st.columns(2)
+            with src_col:
                 source = st.selectbox(
                     words["ssit_source"],
                     ["marsh", "well", "tank"],
                     format_func=lambda key: words["ssit_src_" + key],
                     key="ssit_src",
                 )
-        with crop_col:
-            crop_choice = st.selectbox(
-                words["ssit_crop"],
-                ["maize", "veg", "bean", "potato"],
-                format_func=lambda key: words["ssit_crop_" + key],
-                key="ssit_crop",
-            )
+            with crop_col:
+                crop_choice = st.selectbox(
+                    words["ssit_crop"],
+                    ["maize", "veg", "bean", "potato"],
+                    format_func=lambda key: words["ssit_crop_" + key],
+                    key="ssit_crop",
+                )
             plan = ssit_plan(hectares, source)
             kit_name = plan["name_rw"] if st.session_state.lang == "rw" else plan["name_en"]
             irrig_gap_kit = float((benchmark or {}).get("within_district_kg_ha", {}).get("irrigated", 365.3))
             protected_kg = irrig_gap_kit * hectares
-        price = None
-        price_date = None
-        if watch_hit is not None and pd.notna(watch_hit.get("maize_price_rwf_per_kg")):
-            price = float(watch_hit["maize_price_rwf_per_kg"])
-            price_date = str(watch_hit["price_date"])
-        elif watch_hit is not None:
-            price = float(watch_hit["national_maize_price_rwf_per_kg"]) if pd.notna(watch_hit.get("national_maize_price_rwf_per_kg")) else None
-            price_date = str(watch_hit.get("national_price_date") or "")
-        value_rwf = protected_kg * price if price else None
-        extra_note = words["ssit_badge"]
+            price = None
+            price_date = None
+            if watch_hit is not None and pd.notna(watch_hit.get("maize_price_rwf_per_kg")):
+                price = float(watch_hit["maize_price_rwf_per_kg"])
+                price_date = str(watch_hit["price_date"])
+            elif watch_hit is not None:
+                price = float(watch_hit["national_maize_price_rwf_per_kg"]) if pd.notna(watch_hit.get("national_maize_price_rwf_per_kg")) else None
+                price_date = str(watch_hit.get("national_price_date") or "")
+            value_rwf = protected_kg * price if price else None
+            extra_note = words["ssit_badge"]
             if plan.get("warning"):
                 extra_note += " " + plan["warning"]
-        if crop_choice != "maize":
-            extra_note += " " + words["ssit_other_crop"]
-        if watch_hit is not None and pd.isna(watch_hit.get("maize_price_rwf_per_kg")):
-            extra_note += " " + words["ssit_no_price"].format(date=price_date or "—")
-        kpis = [
-            kpi(words["ssit_kit"], kit_name),
+            if crop_choice != "maize":
+                extra_note += " " + words["ssit_other_crop"]
+            if watch_hit is not None and pd.isna(watch_hit.get("maize_price_rwf_per_kg")):
+                extra_note += " " + words["ssit_no_price"].format(date=price_date or "—")
+            kpis = [
+                kpi(words["ssit_kit"], kit_name),
                 kpi(words.get("ssit_cost", "Indicative kit (RWF)"), f"{plan['indicative_cost_rwf']:,.0f}"),
                 kpi(words.get("ssit_farmer", "Farmer 50% (RWF)"), f"{plan['farmer_rwf']:,.0f}"),
                 kpi(words.get("ssit_subsidy_amt", "Subsidy 50% (RWF)"), f"{plan['subsidy_rwf']:,.0f}"),
-            kpi(words["ssit_protect"], f"{protected_kg:.0f}" if crop_choice == "maize" else "—"),
-            kpi(words["ssit_value"], f"{value_rwf:,.0f}" if value_rwf is not None and crop_choice == "maize" else "—"),
-        ]
-        st.markdown(
-            '<div class="inner-wrap">'
-            + f'<div class="policy-badge">{words["ssit_badge"]}</div>'
-            + board(words["ssit_title"], chosen_kit, words["ssit_lead"], extra_note, kpis)
-            + "</div>",
-            unsafe_allow_html=True,
-        )
+                kpi(words["ssit_protect"], f"{protected_kg:.0f}" if crop_choice == "maize" else "—"),
+                kpi(words["ssit_value"], f"{value_rwf:,.0f}" if value_rwf is not None and crop_choice == "maize" else "—"),
+            ]
+            st.markdown(
+                '<div class="inner-wrap">'
+                + f'<div class="policy-badge">{words["ssit_badge"]}</div>'
+                + board(words["ssit_title"], chosen_kit, words["ssit_lead"], extra_note, kpis)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
 
         d1, d2, d3 = st.columns(3)
         d1.button(words["nav_alerts"], width="stretch", key="dash_to_alerts", on_click=jump, args=("alerts",))
@@ -1977,14 +1978,14 @@ elif page == "advise":
 
         district_names = district_names_all
         default_d = st.session_state.get("district") or ("Nyaruguru" if role == "farmer" else ("Bugesera" if role == "policy" else "Nyagatare"))
-    if default_d not in district_names:
-        default_d = district_names[0]
+        if default_d not in district_names:
+            default_d = district_names[0]
         current_d = st.session_state.get("chat_district", default_d)
         if current_d not in district_names:
             current_d = district_names[0]
         history_key = f"chat_{current_d}_{st.session_state.lang}"
-    if history_key not in st.session_state:
-        st.session_state[history_key] = []
+        if history_key not in st.session_state:
+            st.session_state[history_key] = []
         profile = pack(alerts, forecast, watch, soil, vegetation, current_d)
 
         engine = llm_status()
@@ -2017,34 +2018,34 @@ elif page == "advise":
                 )
 
                 col_d, col_exp, col_clr = st.columns([2.0, 1.2, 0.8], vertical_alignment="bottom")
-    with col_d:
-        chosen_chat = st.selectbox(
-            words["pick_district"],
-            district_names,
+                with col_d:
+                    chosen_chat = st.selectbox(
+                        words["pick_district"],
+                        district_names,
                         index=district_names.index(current_d),
-            key="chat_district",
-        )
+                        key="chat_district",
+                    )
                     st.session_state.district = chosen_chat
-    with col_exp:
-        if st.session_state[history_key]:
+                with col_exp:
+                    if st.session_state[history_key]:
                         transcript_text = f"# CropWatch Rwanda: ADVICE AI briefing ({chosen_chat})\n\n"
-            for s_role, s_msg in st.session_state[history_key]:
+                        for s_role, s_msg in st.session_state[history_key]:
                             pfx = "Farmer or extension agent" if s_role == "user" else "ADVICE AI"
-                transcript_text += f"### {pfx}:\n{s_msg}\n\n"
-            st.download_button(
+                            transcript_text += f"### {pfx}:\n{s_msg}\n\n"
+                        st.download_button(
                             "📥 " + tr("Export", "Koporora"),
-                transcript_text.encode("utf-8"),
+                            transcript_text.encode("utf-8"),
                             f"cropwatch_advice_{chosen_chat.lower()}.md",
-                "text/markdown",
-                key=f"dl_transcript_{chosen_chat}",
-                width="stretch",
-            )
-        else:
+                            "text/markdown",
+                            key=f"dl_transcript_{chosen_chat}",
+                            width="stretch",
+                        )
+                    else:
                         st.button("📥 " + tr("Export", "Koporora"), disabled=True, width="stretch", key="btn_exp_disabled")
-    with col_clr:
+                with col_clr:
                     if st.button("🔄 " + tr("Clear", "Siba"), key="btn_clear_chat", width="stretch"):
-            st.session_state[history_key] = []
-            st.rerun()
+                        st.session_state[history_key] = []
+                        st.rerun()
 
                 quick = None
                 history = st.session_state[history_key]
@@ -2052,8 +2053,8 @@ elif page == "advise":
                 chat_ctx = {"district": current_d, "last_bot": last_bot}
 
                 if not history:
-    st.markdown(
-        f"""
+                    st.markdown(
+                        f"""
                         <div class="ai-welcome">
                           <div class="ai-orb big">{ORB}</div>
                           <h3>{tr(f"How can I help in {chosen_chat}?", f"Nagufasha iki muri {chosen_chat}?")}</h3>
@@ -2061,52 +2062,52 @@ elif page == "advise":
                               "Ask about irrigation, soil, fertilizer, prices or risk. Answers use this week's rain, the 7-day forecast and survey data for the district.",
                               "Baza ku kuhira, ubutaka, ifumbire, ibiciro cyangwa ibyago. Ibisubizo bishingiye ku mvura, iteganyagihe n'amakuru y'ubuhinzi by'akarere."
                           )}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                     quick = quick_grid()
 
-        if quick:
+                if quick:
                     label = dict((i, words.get(k, d)) for i, k, d in QUICK_DEFS)[quick]
                     with st.spinner(tr("ADVICE AI is thinking…", "ADVICE AI iratekereza…")):
                         text = answer(label, profile, words, st.session_state.lang, force_intent=quick, context=chat_ctx)
                     st.session_state[history_key].append(("user", label))
-            st.session_state[history_key].append(("bot", text))
-            st.rerun()
+                    st.session_state[history_key].append(("bot", text))
+                    st.rerun()
 
-        if "pending_chat_prompt" in st.session_state:
-            pending_q = st.session_state.pop("pending_chat_prompt")
+                if "pending_chat_prompt" in st.session_state:
+                    pending_q = st.session_state.pop("pending_chat_prompt")
                     with st.spinner(tr("ADVICE AI is thinking…", "ADVICE AI iratekereza…")):
                         ans_text = answer(pending_q, profile, words, st.session_state.lang, context=chat_ctx)
-            st.session_state[history_key].append(("user", pending_q))
-            st.session_state[history_key].append(("bot", ans_text))
-            st.rerun()
+                    st.session_state[history_key].append(("user", pending_q))
+                    st.session_state[history_key].append(("bot", ans_text))
+                    st.rerun()
 
                 num_msgs = len(history)
                 for idx, (speaker, text) in enumerate(history):
-            if speaker == "user":
-                with st.chat_message("user", avatar="👤"):
+                    if speaker == "user":
+                        with st.chat_message("user", avatar="👤"):
                             st.markdown('<span class="user-marker" style="display:none;"></span>', unsafe_allow_html=True)
-                    st.markdown(text)
-            else:
-                with st.chat_message("assistant", avatar="🌾"):
-                    st.markdown(
+                            st.markdown(text)
+                    else:
+                        with st.chat_message("assistant", avatar="🌾"):
+                            st.markdown(
                                 f'<span class="assistant-marker" style="display:none;"></span>'
                                 f'<div class="ai-msg-label">ADVICE AI · {chosen_chat}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(text)
-                    if idx == num_msgs - 1:
+                                unsafe_allow_html=True,
+                            )
+                            st.markdown(text)
+                            if idx == num_msgs - 1:
                                 components.html(audio_speech_html(text, st.session_state.lang), height=46)
                                 followups = get_followups(classify(text), st.session_state.lang)
-                        if followups:
+                                if followups:
                                     st.markdown(f'<p class="ai-next">{tr("Try next", "Inyigo zikurikira")}</p>', unsafe_allow_html=True)
-                            chip_cols = st.columns(len(followups))
-                            for c_idx, chip_text in enumerate(followups):
-                                if chip_cols[c_idx].button(chip_text, key=f"chip_btn_{idx}_{c_idx}", width="stretch"):
-                                    st.session_state["pending_chat_prompt"] = chip_text
-                                    st.rerun()
+                                    chip_cols = st.columns(len(followups))
+                                    for c_idx, chip_text in enumerate(followups):
+                                        if chip_cols[c_idx].button(chip_text, key=f"chip_btn_{idx}_{c_idx}", width="stretch"):
+                                            st.session_state["pending_chat_prompt"] = chip_text
+                                            st.rerun()
 
                 if history:
                     with st.expander("💡 " + tr("Suggested questions", "Ibibazo byagutse")):
@@ -2132,7 +2133,7 @@ elif page == "advise":
 
                 if chat_input_val:
                     detected_d = extract_district(chat_input_val)
-            if detected_d and detected_d != chosen_chat:
+                    if detected_d and detected_d != chosen_chat:
                         # switch district on the next run: the picker is already drawn, so its state is locked now
                         st.session_state["chat_district_next"] = detected_d
                         st.session_state["pending_chat_prompt"] = chat_input_val
@@ -2141,8 +2142,8 @@ elif page == "advise":
                     with st.spinner(tr("ADVICE AI is thinking…", "ADVICE AI iratekereza…")):
                         text = answer(chat_input_val, profile, words, st.session_state.lang, context=chat_ctx)
                     st.session_state[history_key].append(("user", chat_input_val))
-            st.session_state[history_key].append(("bot", text))
-            st.rerun()
+                    st.session_state[history_key].append(("bot", text))
+                    st.rerun()
 
         # =================== context panel ===================
         with col_side:
@@ -2155,57 +2156,57 @@ elif page == "advise":
                 if screen_ai["cropwatch_water_flag"]
                 else f'<span class="ai-flag good">{lbl_noflag}</span>'
             )
-        st.markdown(
-            f"""
-            <div class="ai-side-card">
+            st.markdown(
+                f"""
+                <div class="ai-side-card">
                   <div class="ai-side-header"><span>📍</span> <span>{tr("Live data for", "Amakuru y'ubu ya")} {current_d}</span></div>
                   <div class="ai-tiles">
                     <div class="ai-tile {rain_tone}"><span>{tr("Rain vs usual", "Imvura ku isanzwe")}</span><strong>{profile['rain_pct']:+.0f}%</strong></div>
                     <div class="ai-tile"><span>{tr("Next 7 days", "Iminsi 7")}</span><strong>{profile['week_mm']:.0f} mm</strong></div>
                     <div class="ai-tile"><span>{tr("Water gap", "Icyuho cy'amazi")}</span><strong>{profile['deficit_mm']:.1f} mm</strong></div>
                     <div class="ai-tile"><span>{tr("Maize price", "Igiciro cy'ibigori")}</span><strong>{f"{profile['price']:.0f} RWF" if profile.get("price") is not None else "—"}</strong></div>
-              </div>
-              </div>
+                  </div>
+                </div>
                 <div class="ai-side-card">
                   <div class="ai-side-header"><span>🛡️</span> <span>{tr("Risk and insurance", "Ibyago n'ubwishingizi")}</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Alert status", "Uko bihagaze")}</span><span class="ai-side-stat-val">{pill(profile['alert'], words)}</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Water screen", "Iburira ry'amazi")}</span><span class="ai-side-stat-val">{flag_html}</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("SSIT kit (0.5 ha, marsh)", "Pompi ya SSIT (0.5 ha, igishanga)")}</span><span class="ai-side-stat-val">{ssit_plan(0.5, "marsh")["key"]}</span></div>
-              </div>
-            <div class="ai-side-card">
+                </div>
+                <div class="ai-side-card">
                   <div class="ai-side-header"><span>📊</span> <span>{tr("NISR survey baseline", "Amakuru ya NISR SAS")}</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Usual yield", "Umusaruro usanzwe")}</span><span class="ai-side-stat-val">{profile['usual_yield']:.0f} kg/ha</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Irrigated plots", "Imirima ihirwa")}</span><span class="ai-side-stat-val">{profile['irrigated_pct']:.1f}%</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Organic fertilizer", "Ifumbire y'imborera")}</span><span class="ai-side-stat-val">{profile['organic_pct']:.1f}%</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Inorganic (DAP/Urea)", "Ifumbire mvaruganda")}</span><span class="ai-side-stat-val">{profile['inorganic_pct']:.1f}%</span></div>
                   <div class="ai-side-stat"><span class="ai-side-stat-lbl">{tr("Protected slopes", "Imirima ifite amaterasi")}</span><span class="ai-side-stat-val">{profile['protected_pct']:.1f}%</span></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        sms_preview = sms_text(profile, words)
-        lines_sms = [l for l in sms_preview.split("\n") if l.strip() and not l.startswith("#") and not l.startswith("```") and not l.startswith("*")]
+            sms_preview = sms_text(profile, words)
+            lines_sms = [l for l in sms_preview.split("\n") if l.strip() and not l.startswith("#") and not l.startswith("```") and not l.startswith("*")]
             clean_sms_str = lines_sms[0] if lines_sms else f"CropWatch {current_d}: Rain {profile['rain_pct']:+.0f}%. Week {profile['week_mm']:.0f}mm. SSIT {profile['deficit_mm']:.1f}mm deficit."
-        clean_sms_str = clean_sms_str[:160]
-        st.markdown(
-            f"""
-            <div class="ai-side-card">
+            clean_sms_str = clean_sms_str[:160]
+            st.markdown(
+                f"""
+                <div class="ai-side-card">
                   <div class="ai-side-header"><span>📱</span> <span>{tr("160-character SMS", "SMS y'inyuguti 160")}</span></div>
-              <div class="ai-sms-screen">{clean_sms_str}</div>
+                  <div class="ai-sms-screen">{clean_sms_str}</div>
                   <div class="ai-sms-meta"><span>{len(clean_sms_str)} / 160 {tr("characters", "inyuguti")}</span><strong>{tr("Draft only", "Inyandiko gusa")}</strong></div>
-              </div>
+                </div>
                 <div class="ai-side-card soft">
                   <div class="ai-side-header"><span>🏛️</span> <span>{tr("Extension contacts", "Ubufasha bw'inzego")}</span></div>
                   <div class="ai-contacts">
                     <div>📞 <strong>MINAGRI:</strong> 1330 ({tr("toll-free", "ni ubuntu")})</div>
                     <div>🌿 <strong>RAB:</strong> {tr("Sector agronomist", "Agronome wa santere")}</div>
                     <div>🛡️ <strong>Tekana / NAIS:</strong> {tr("Ask the sector. CropWatch does not pay.", "Saba ku murenge. CropWatch ntishyura.")}</div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     render_footer(words)
 
@@ -2215,15 +2216,15 @@ elif page == "advise":
 elif page == "data":
     page_head(words["src_title"], words["src_lead"], words)
     with page_body():
-    t_sources, t_overview, t_crops, t_calendar, t_rain = st.tabs([
-        words["tab_sources"],
-        words["tab_overview"],
-        words["tab_crops"],
-        words["tab_calendar"],
-        words["tab_rain"],
-    ])
-    with t_sources:
-        cards = "".join(source_card(item, st.session_state.lang, words) for item in SOURCES)
+        t_sources, t_overview, t_crops, t_calendar, t_rain = st.tabs([
+            words["tab_sources"],
+            words["tab_overview"],
+            words["tab_crops"],
+            words["tab_calendar"],
+            words["tab_rain"],
+        ])
+        with t_sources:
+            cards = "".join(source_card(item, st.session_state.lang, words) for item in SOURCES)
             st.markdown(
                 f'<div class="inner-wrap">{cards}'
                 f'<div class="note-box"><strong>{words["footer_legal"]}</strong><br>{words["footer_disclaimer"]}<br>{words["footer_ack"]}</div>'
@@ -2231,194 +2232,194 @@ elif page == "data":
                 unsafe_allow_html=True,
             )
 
-    with t_overview:
-        wide = survey_rows.pivot(index="year", columns="season", values="crop_rows").sort_index().reset_index()
-        record_headers = [words["year_col"]] + [str(col) for col in wide.columns if col != "year"]
-        record_rows = []
-        for _, item in wide.iterrows():
-            record_rows.append([int(item["year"])] + [f"{int(item[col]):,}" if pd.notna(item[col]) else "—" for col in wide.columns if col != "year"])
-        st.markdown(
-            '<div class="inner-wrap">'
+        with t_overview:
+            wide = survey_rows.pivot(index="year", columns="season", values="crop_rows").sort_index().reset_index()
+            record_headers = [words["year_col"]] + [str(col) for col in wide.columns if col != "year"]
+            record_rows = []
+            for _, item in wide.iterrows():
+                record_rows.append([int(item["year"])] + [f"{int(item[col]):,}" if pd.notna(item[col]) else "—" for col in wide.columns if col != "year"])
+            st.markdown(
+                '<div class="inner-wrap">'
                 + '<div class="kpi-row">'
-            + kpi(words["survey_rows"], f"{int(status['survey_crop_rows']):,}")
-            + kpi(words["safe"], str(int(status["safe_matches"])))
-            + kpi(words["separate"], str(int(status["similar_kept_separate"])))
-            + kpi(words["districts"], str(int(status["districts"])))
-            + "</div>"
+                + kpi(words["survey_rows"], f"{int(status['survey_crop_rows']):,}")
+                + kpi(words["safe"], str(int(status["safe_matches"])))
+                + kpi(words["separate"], str(int(status["similar_kept_separate"])))
+                + kpi(words["districts"], str(int(status["districts"])))
+                + "</div>"
                 + f'<p class="kicker-green" style="margin-top:32px">{words["fresh_files"]}</p>'
-            + '<div class="fresh-list">'
-            + f'<article><span>{words["price_until"]}</span><strong>{status["price_last_date"]}</strong></article>'
-            + f'<article><span>{words["rain_until"]}</span><strong>{rain_text}</strong></article>'
-            + f'<article><span>{words["trade_until"]}</span><strong>{int(status["trade_last_year"])}</strong></article>'
-            + "</div>"
-            + f'<div class="note-box">{words["not_all"]}</div>'
-            + f'<p class="kicker-green">{words["records_title"]}</p><p class="section-p">{words["records_note"]}</p>'
-            + data_table(record_headers, record_rows)
-            + "</div>",
-            unsafe_allow_html=True,
-        )
+                + '<div class="fresh-list">'
+                + f'<article><span>{words["price_until"]}</span><strong>{status["price_last_date"]}</strong></article>'
+                + f'<article><span>{words["rain_until"]}</span><strong>{rain_text}</strong></article>'
+                + f'<article><span>{words["trade_until"]}</span><strong>{int(status["trade_last_year"])}</strong></article>'
+                + "</div>"
+                + f'<div class="note-box">{words["not_all"]}</div>'
+                + f'<p class="kicker-green">{words["records_title"]}</p><p class="section-p">{words["records_note"]}</p>'
+                + data_table(record_headers, record_rows)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
 
-    with t_crops:
+        with t_crops:
             st.markdown(f'<p class="section-p">{words["safe_lead"]}</p>', unsafe_allow_html=True)
-        if st.session_state.lang == "rw":
-            safe_rw = safe.copy()
-            safe_rw["product_form"] = safe_rw["product_form"].map(FORM_RW)
-            show_table(
-                safe_rw.rename(
-                    columns={
-                        "survey_crop_rw": words["survey_col"],
-                        "price_name_rw": words["price_col"],
-                        "product_form": words["form_col"],
-                        "hs_heading": words["hs_col"],
-                        "note_rw": words["note_col"],
-                    }
-                )[[words["survey_col"], words["price_col"], words["form_col"], words["hs_col"], words["note_col"]]]
-            )
-        else:
-            show_table(
-                safe.rename(
-                    columns={
-                        "survey_crop": words["survey_col"],
-                        "price_name": words["price_col"],
-                        "product_form": words["form_col"],
-                        "hs_heading": words["hs_col"],
-                        "note_en": words["note_col"],
-                    }
-                )[[words["survey_col"], words["price_col"], words["form_col"], words["hs_col"], words["note_col"]]]
-            )
+            if st.session_state.lang == "rw":
+                safe_rw = safe.copy()
+                safe_rw["product_form"] = safe_rw["product_form"].map(FORM_RW)
+                show_table(
+                    safe_rw.rename(
+                        columns={
+                            "survey_crop_rw": words["survey_col"],
+                            "price_name_rw": words["price_col"],
+                            "product_form": words["form_col"],
+                            "hs_heading": words["hs_col"],
+                            "note_rw": words["note_col"],
+                        }
+                    )[[words["survey_col"], words["price_col"], words["form_col"], words["hs_col"], words["note_col"]]]
+                )
+            else:
+                show_table(
+                    safe.rename(
+                        columns={
+                            "survey_crop": words["survey_col"],
+                            "price_name": words["price_col"],
+                            "product_form": words["form_col"],
+                            "hs_heading": words["hs_col"],
+                            "note_en": words["note_col"],
+                        }
+                    )[[words["survey_col"], words["price_col"], words["form_col"], words["hs_col"], words["note_col"]]]
+                )
 
             st.markdown(f'<p class="kicker-green" style="margin-top:12px">{words["separate"]}</p><p class="section-p">{words["close_lead"]}</p>', unsafe_allow_html=True)
-        if st.session_state.lang == "rw":
-            show_table(
-                close.rename(
-                    columns={
-                        "survey_crop_rw": words["survey_col"],
-                        "price_name_rw": words["price_col"],
-                        "note_rw": words["note_col"],
-                    }
-                )[[words["survey_col"], words["price_col"], words["note_col"]]]
-            )
-        else:
-            show_table(
-                close.rename(
-                    columns={
-                        "survey_crop": words["survey_col"],
-                        "price_name": words["price_col"],
-                        "note_en": words["note_col"],
-                    }
-                )[[words["survey_col"], words["price_col"], words["note_col"]]]
-            )
+            if st.session_state.lang == "rw":
+                show_table(
+                    close.rename(
+                        columns={
+                            "survey_crop_rw": words["survey_col"],
+                            "price_name_rw": words["price_col"],
+                            "note_rw": words["note_col"],
+                        }
+                    )[[words["survey_col"], words["price_col"], words["note_col"]]]
+                )
+            else:
+                show_table(
+                    close.rename(
+                        columns={
+                            "survey_crop": words["survey_col"],
+                            "price_name": words["price_col"],
+                            "note_en": words["note_col"],
+                        }
+                    )[[words["survey_col"], words["price_col"], words["note_col"]]]
+                )
 
             st.markdown(f'<p class="kicker-green" style="margin-top:12px">{words["no_price"]}</p><p class="section-p">{words["unmatched_lead"]}</p>', unsafe_allow_html=True)
-        name_col = "survey_crop_rw" if st.session_state.lang == "rw" else "survey_crop"
-        why_col = "why_rw" if st.session_state.lang == "rw" else "why_en"
-        show_table(
-            unmatched.rename(columns={name_col: words["crop_col"], why_col: words["note_col"]})[
-                [words["crop_col"], words["note_col"]]
-            ]
-        )
+            name_col = "survey_crop_rw" if st.session_state.lang == "rw" else "survey_crop"
+            why_col = "why_rw" if st.session_state.lang == "rw" else "why_en"
+            show_table(
+                unmatched.rename(columns={name_col: words["crop_col"], why_col: words["note_col"]})[
+                    [words["crop_col"], words["note_col"]]
+                ]
+            )
 
-    with t_calendar:
+        with t_calendar:
             st.markdown(f'<p class="section-p">{words["season_lead"]}</p>', unsafe_allow_html=True)
-        if st.session_state.lang == "rw":
-            show_table(
-                seasons.rename(
-                    columns={
-                        "season_rw": words["season_col"],
-                        "months_rw": words["months_col"],
-                        "about_rw": words["about_col"],
-                    }
-                )[[words["season_col"], words["months_col"], words["about_col"]]]
-            )
-        else:
-            show_table(
-                seasons.rename(
-                    columns={
-                        "season_en": words["season_col"],
-                        "months_en": words["months_col"],
-                        "about_en": words["about_col"],
-                    }
-                )[[words["season_col"], words["months_col"], words["about_col"]]]
-            )
+            if st.session_state.lang == "rw":
+                show_table(
+                    seasons.rename(
+                        columns={
+                            "season_rw": words["season_col"],
+                            "months_rw": words["months_col"],
+                            "about_rw": words["about_col"],
+                        }
+                    )[[words["season_col"], words["months_col"], words["about_col"]]]
+                )
+            else:
+                show_table(
+                    seasons.rename(
+                        columns={
+                            "season_en": words["season_col"],
+                            "months_en": words["months_col"],
+                            "about_en": words["about_col"],
+                        }
+                    )[[words["season_col"], words["months_col"], words["about_col"]]]
+                )
 
             maize_title = tr("Maize and sorghum", "Ibigori n'amasaka")
             st.markdown(f'<p class="kicker-green" style="margin-top:12px">{maize_title}</p><p class="section-p">{words["calendar_lead"]}</p>', unsafe_allow_html=True)
-        if st.session_state.lang == "rw":
-            show_table(
-                calendar.rename(
-                    columns={
-                        "crop_rw": words["crop_col"],
-                        "season": words["season_col"],
-                        "plant_rw": words["plant_col"],
-                        "harvest_rw": words["harvest_col"],
-                        "source": words["source_col"],
-                    }
-                )[[words["crop_col"], words["season_col"], words["plant_col"], words["harvest_col"], words["source_col"]]]
-            )
-        else:
-            show_table(
-                calendar.rename(
-                    columns={
-                        "crop_en": words["crop_col"],
-                        "season": words["season_col"],
-                        "plant_en": words["plant_col"],
-                        "harvest_en": words["harvest_col"],
-                        "source": words["source_col"],
-                    }
-                )[[words["crop_col"], words["season_col"], words["plant_col"], words["harvest_col"], words["source_col"]]]
-            )
+            if st.session_state.lang == "rw":
+                show_table(
+                    calendar.rename(
+                        columns={
+                            "crop_rw": words["crop_col"],
+                            "season": words["season_col"],
+                            "plant_rw": words["plant_col"],
+                            "harvest_rw": words["harvest_col"],
+                            "source": words["source_col"],
+                        }
+                    )[[words["crop_col"], words["season_col"], words["plant_col"], words["harvest_col"], words["source_col"]]]
+                )
+            else:
+                show_table(
+                    calendar.rename(
+                        columns={
+                            "crop_en": words["crop_col"],
+                            "season": words["season_col"],
+                            "plant_en": words["plant_col"],
+                            "harvest_en": words["harvest_col"],
+                            "source": words["source_col"],
+                        }
+                    )[[words["crop_col"], words["season_col"], words["plant_col"], words["harvest_col"], words["source_col"]]]
+                )
 
             st.markdown(f'<p class="kicker-green" style="margin-top:12px">{words["zone_col"]}</p><p class="section-p">{words["zone_lead"]}</p>', unsafe_allow_html=True)
-        crop_key = 1 if st.session_state.lang == "rw" else 0
-        crop_labels = {name: FAO_CROP[name][crop_key] for name in FAO_CROP}
-        picked = st.selectbox(words["crop_col"], list(crop_labels), format_func=lambda name: crop_labels[name], key="hub_crop_zone")
-        zone_view = zones[zones["fao_crop"] == picked].copy()
-        month_names = words["month_names"]
+            crop_key = 1 if st.session_state.lang == "rw" else 0
+            crop_labels = {name: FAO_CROP[name][crop_key] for name in FAO_CROP}
+            picked = st.selectbox(words["crop_col"], list(crop_labels), format_func=lambda name: crop_labels[name], key="hub_crop_zone")
+            zone_view = zones[zones["fao_crop"] == picked].copy()
+            month_names = words["month_names"]
 
-        def span(day_start, month_start, day_end, month_end):
-            if pd.isna(month_start) or pd.isna(month_end):
-                return ""
-            return f"{int(day_start)} {month_names[int(month_start)]} – {int(day_end)} {month_names[int(month_end)]}"
+            def span(day_start, month_start, day_end, month_end):
+                if pd.isna(month_start) or pd.isna(month_end):
+                    return ""
+                return f"{int(day_start)} {month_names[int(month_start)]} – {int(day_end)} {month_names[int(month_end)]}"
 
-        zone_view[words["plant_col"]] = [
-            span(a, b, c, d)
-            for a, b, c, d in zip(
-                zone_view["early_sowing_day"],
-                zone_view["early_sowing_month"],
-                zone_view["late_sowing_day"],
-                zone_view["late_sowing_month"],
-            )
-        ]
-        zone_view[words["harvest_col"]] = [
-            span(a, b, c, d)
-            for a, b, c, d in zip(
-                zone_view["early_harvest_day"],
-                zone_view["early_harvest_month"],
-                zone_view["late_harvest_day"],
-                zone_view["late_harvest_month"],
-            )
-        ]
-        show_table(
-            zone_view.rename(columns={"zone": words["zone_col"]})[
-                [words["zone_col"], words["plant_col"], words["harvest_col"]]
+            zone_view[words["plant_col"]] = [
+                span(a, b, c, d)
+                for a, b, c, d in zip(
+                    zone_view["early_sowing_day"],
+                    zone_view["early_sowing_month"],
+                    zone_view["late_sowing_day"],
+                    zone_view["late_sowing_month"],
+                )
             ]
-        )
+            zone_view[words["harvest_col"]] = [
+                span(a, b, c, d)
+                for a, b, c, d in zip(
+                    zone_view["early_harvest_day"],
+                    zone_view["early_harvest_month"],
+                    zone_view["late_harvest_day"],
+                    zone_view["late_harvest_month"],
+                )
+            ]
+            show_table(
+                zone_view.rename(columns={"zone": words["zone_col"]})[
+                    [words["zone_col"], words["plant_col"], words["harvest_col"]]
+                ]
+            )
 
-    with t_rain:
+        with t_rain:
             st.markdown(f'<p class="section-p">{words["rain_lead"]}</p>', unsafe_allow_html=True)
             rain_districts = sorted(rain["district"].unique())
             rd_col, ry_col = st.columns(2)
             with rd_col:
                 chosen_rd = st.selectbox(words["district_col"], rain_districts, index=rain_districts.index("Nyagatare") if "Nyagatare" in rain_districts else 0, key="hub_rain_district")
-        years = sorted(rain["year"].unique())
+            years = sorted(rain["year"].unique())
             with ry_col:
-        chosen_year = st.selectbox(words["year_col"], years, index=len(years) - 1, key="hub_rain_year")
+                chosen_year = st.selectbox(words["year_col"], years, index=len(years) - 1, key="hub_rain_year")
             view_rain = rain[(rain["district"] == chosen_rd) & (rain["year"] == chosen_year)].sort_values("month").copy()
-        view_rain[words["month_col"]] = view_rain["month"].map(words["month_names"])
-        view_rain[words["rain_col"]] = view_rain["rainfall_mm"].round(1)
-        view_rain[words["usual_col"]] = view_rain["usual_mm"].round(1)
-        view_rain[words["diff_col"]] = view_rain["difference_mm"].round(1)
-        show_table(view_rain[[words["month_col"], words["rain_col"], words["usual_col"], words["diff_col"]]])
+            view_rain[words["month_col"]] = view_rain["month"].map(words["month_names"])
+            view_rain[words["rain_col"]] = view_rain["rainfall_mm"].round(1)
+            view_rain[words["usual_col"]] = view_rain["usual_mm"].round(1)
+            view_rain[words["diff_col"]] = view_rain["difference_mm"].round(1)
+            show_table(view_rain[[words["month_col"], words["rain_col"], words["usual_col"], words["diff_col"]]])
 
     render_footer(words)
 
@@ -2428,85 +2429,85 @@ elif page == "data":
 elif page == "about":
     page_head(words["about_title"], words["about_lead"], words)
     with page_body():
-    st.markdown(
-        '<div class="inner-wrap">'
-        f'<p class="section-p">{words["about_body"]}</p>'
-        f'<p class="kicker-green">{words["about_obj"]}</p>'
-        f'<p class="section-p">{words["about_obj_body"]}</p>'
-        f'<p class="kicker-green">{words["about_who"]}</p>'
-        '<div class="decision-grid">'
-        f'<article><h3>{words["role_farmer"]}</h3><p>{words["about_farmer"]}</p></article>'
-        f'<article><h3>{words["role_agronomist"]}</h3><p>{words["about_agro"]}</p></article>'
-        f'<article><h3>{words["role_policy"]}</h3><p>{words["about_policy"]}</p></article>'
-        "</div>"
-        f'<p class="kicker-green" style="margin-top:36px">{words["more_tools"]}</p>'
-        f'<p class="section-p">{words["about_ai"]}</p>'
-        f'<p class="kicker-green" style="margin-top:36px">{words["about_team_title"]}</p>'
+        st.markdown(
+            '<div class="inner-wrap">'
+            f'<p class="section-p">{words["about_body"]}</p>'
+            f'<p class="kicker-green">{words["about_obj"]}</p>'
+            f'<p class="section-p">{words["about_obj_body"]}</p>'
+            f'<p class="kicker-green">{words["about_who"]}</p>'
+            '<div class="decision-grid">'
+            f'<article><h3>{words["role_farmer"]}</h3><p>{words["about_farmer"]}</p></article>'
+            f'<article><h3>{words["role_agronomist"]}</h3><p>{words["about_agro"]}</p></article>'
+            f'<article><h3>{words["role_policy"]}</h3><p>{words["about_policy"]}</p></article>'
+            "</div>"
+            f'<p class="kicker-green" style="margin-top:36px">{words["more_tools"]}</p>'
+            f'<p class="section-p">{words["about_ai"]}</p>'
+            f'<p class="kicker-green" style="margin-top:36px">{words["about_team_title"]}</p>'
             f'<div style="display:inline-block; padding:5px 14px; background:rgba(196,163,90,0.15); border:1px solid var(--accent); border-radius:16px; font-size:14px; font-weight:600; color:var(--gold-soft); margin-bottom:16px;">🏆 {words["hackathon_badge"]}</div>'
             '<div class="decision-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">'
             f'<article style="border-top:3px solid var(--accent); border-left:0; padding:16px 0 0;">'
-        f'<h3 style="margin-bottom:2px;">{words["team_murenzi_name"]}</h3>'
+            f'<h3 style="margin-bottom:2px;">{words["team_murenzi_name"]}</h3>'
             f'<p style="color:var(--gold-soft); font-weight:600; font-size:14px; margin-bottom:6px;">{words["team_murenzi_role"]}</p>'
             f'<p style="font-size:15px; line-height:1.55; color:var(--text);">{words["team_murenzi_desc"]}</p>'
             '</article>'
             f'<article style="border-top:3px solid var(--accent); border-left:0; padding:16px 0 0;">'
-        f'<h3 style="margin-bottom:2px;">{words["team_bahire_name"]}</h3>'
+            f'<h3 style="margin-bottom:2px;">{words["team_bahire_name"]}</h3>'
             f'<p style="color:var(--gold-soft); font-weight:600; font-size:14px; margin-bottom:6px;">{words["team_bahire_role"]}</p>'
             f'<p style="font-size:15px; line-height:1.55; color:var(--text);">{words["team_bahire_desc"]}</p>'
             '</article>'
-        '</div>'
+            '</div>'
             f'<div class="note-box" style="margin-top:28px"><strong>{words["footer_legal"]}</strong><br>{words["footer_disclaimer"]}</div>'
-        f'<p class="section-p">{words["footer_ack"]}</p>'
-        "</div>",
-        unsafe_allow_html=True,
-    )
-        with st.expander(words.get("about_method_title", "How the numbers are made"), expanded=True):
-        steps = "".join(
-            f'<article><span class="step">{i:02d}</span><p>{words[key]}</p></article>'
-            for i, key in enumerate(("how_1", "how_2", "how_3", "how_4", "how_5", "how_6", "how_7", "how_8", "how_9", "how_10"), start=1)
-        )
-        glossary = "".join(
-            f"<p>{words[key]}</p>"
-            for key in ("gl_irrigation", "gl_rain", "gl_erosion", "gl_prod", "gl_yield", "gl_fert", "gl_terrace", "gl_forecast", "gl_warn", "gl_ndre", "gl_et0", "gl_etc")
-        )
-        benchmark_html = model_tables(benchmark, words)
-        if benchmark and "models" in benchmark:
-            benchmark_rows = [
-                [m["name"], f"{m['mae_kg_ha']:.1f}", f"{m['rmse_kg_ha']:.1f}", f"{m['r2']:.3f}", m["verdict"]]
-                for m in benchmark["models"]
-            ]
-            feat_keys = [
-                ("inorganic", "feat_inorganic"),
-                ("rain_diff_pct", "feat_rain"),
-                ("vegetation_mean", "feat_veg"),
-                ("organic_short", "feat_organic_short"),
-                ("organic", "feat_organic"),
-                ("protected", "feat_protected"),
-                ("erosion_moderate", "feat_erosion_moderate"),
-                ("irrigated", "feat_irrigated"),
-                ("erosion_severe", "feat_erosion_severe"),
-            ]
-            importances = (benchmark.get("pooled") or {}).get("feature_importances") or benchmark.get("feature_importances", {})
-            feat_rows = [
-                [words[label_key], f"{importances.get(name, 0) * 100:.1f}%"]
-                for name, label_key in feat_keys
-                if name in importances
-            ]
-            benchmark_html += (
-                f'<p class="kicker-green" style="margin-top:36px">{words["benchmark_title"]}</p>'
-                f'<p class="section-p">{words["benchmark_lead"]}</p>'
-                + data_table(
-                    [words["model_col"], words["mae_col"], words["rmse_col"], words["r2_col"], words["note_col"]],
-                    benchmark_rows,
-                )
-                + f'<p class="kicker-green" style="margin-top:28px">{words["feat_title"]}</p>'
-                + data_table([words["note_col"], words["share_col"]], feat_rows)
-            )
-        st.markdown(
-            f'<div class="method-list">{steps}</div>{benchmark_html}'
-            f'<p class="kicker-green" style="margin-top:36px">{words["method_glossary"]}</p>'
-            f'<div class="glossary">{glossary}</div>',
+            f'<p class="section-p">{words["footer_ack"]}</p>'
+            "</div>",
             unsafe_allow_html=True,
         )
+        with st.expander(words.get("about_method_title", "How the numbers are made"), expanded=True):
+            steps = "".join(
+                f'<article><span class="step">{i:02d}</span><p>{words[key]}</p></article>'
+                for i, key in enumerate(("how_1", "how_2", "how_3", "how_4", "how_5", "how_6", "how_7", "how_8", "how_9", "how_10"), start=1)
+            )
+            glossary = "".join(
+                f"<p>{words[key]}</p>"
+                for key in ("gl_irrigation", "gl_rain", "gl_erosion", "gl_prod", "gl_yield", "gl_fert", "gl_terrace", "gl_forecast", "gl_warn", "gl_ndre", "gl_et0", "gl_etc")
+            )
+            benchmark_html = model_tables(benchmark, words)
+            if benchmark and "models" in benchmark:
+                benchmark_rows = [
+                    [m["name"], f"{m['mae_kg_ha']:.1f}", f"{m['rmse_kg_ha']:.1f}", f"{m['r2']:.3f}", m["verdict"]]
+                    for m in benchmark["models"]
+                ]
+                feat_keys = [
+                    ("inorganic", "feat_inorganic"),
+                    ("rain_diff_pct", "feat_rain"),
+                    ("vegetation_mean", "feat_veg"),
+                    ("organic_short", "feat_organic_short"),
+                    ("organic", "feat_organic"),
+                    ("protected", "feat_protected"),
+                    ("erosion_moderate", "feat_erosion_moderate"),
+                    ("irrigated", "feat_irrigated"),
+                    ("erosion_severe", "feat_erosion_severe"),
+                ]
+                importances = (benchmark.get("pooled") or {}).get("feature_importances") or benchmark.get("feature_importances", {})
+                feat_rows = [
+                    [words[label_key], f"{importances.get(name, 0) * 100:.1f}%"]
+                    for name, label_key in feat_keys
+                    if name in importances
+                ]
+                benchmark_html += (
+                    f'<p class="kicker-green" style="margin-top:36px">{words["benchmark_title"]}</p>'
+                    f'<p class="section-p">{words["benchmark_lead"]}</p>'
+                    + data_table(
+                        [words["model_col"], words["mae_col"], words["rmse_col"], words["r2_col"], words["note_col"]],
+                        benchmark_rows,
+                    )
+                    + f'<p class="kicker-green" style="margin-top:28px">{words["feat_title"]}</p>'
+                    + data_table([words["note_col"], words["share_col"]], feat_rows)
+                )
+            st.markdown(
+                f'<div class="method-list">{steps}</div>{benchmark_html}'
+                f'<p class="kicker-green" style="margin-top:36px">{words["method_glossary"]}</p>'
+                f'<div class="glossary">{glossary}</div>',
+                unsafe_allow_html=True,
+            )
 
     render_footer(words)
